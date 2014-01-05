@@ -33,87 +33,6 @@ enum Value {
     Map(HashMap<~str, Value>) // XXX: This is no value
 }
 
-// parse values recursivly
-fn parse_value(rd: &mut MemReader) -> Value {
-    enum State {
-        st_value,
-        st_number,
-        st_got_number
-    }
-
-    let mut state: State = st_value;
-    let mut val: ~str = ~"";
-
-    loop {
-        match state {
-            st_value => {
-                if rd.eof() { fail!() }
-                let ch = read_char(rd);
-                match ch { 
-                    '\r' | '\n' | ' ' | '\t' => { } 
-                    '0' .. '9' => {
-                        val.push_char(ch);
-                        state = st_number;
-                    }
-                    't' => {
-                        assert!(read_char(rd) == 'r');
-                        assert!(read_char(rd) == 'u');
-                        assert!(read_char(rd) == 'e');
-                        return True
-                    }
-                    'f' => {
-                        assert!(read_char(rd) == 'a');
-                        assert!(read_char(rd) == 'l');
-                        assert!(read_char(rd) == 's');
-                        assert!(read_char(rd) == 'e');
-                        return False
-                    }
-                    '"' => {
-                        loop {
-                            let ch = read_char(rd);
-                            if ch == '"' {
-                                break;
-                            }
-                            val.push_char(ch);
-                        }
-                        return String(val)
-                    }
-                    _ => { fail!() }
-                }
-            }
-            st_got_number => {
-                return Unsigned(from_str(val).unwrap())
-            }
-            st_number => {
-                if rd.eof() {
-                    state = st_got_number;
-                } else {
-                    let ch = read_char(rd);
-                    match ch { 
-                        '\r' | '\n' | ' ' | '\t' => { state = st_got_number }
-                        '#' => { skip_comment(rd); state = st_got_number } 
-                        '0' .. '9' => {
-                            val.push_char(ch);
-                        }
-                        _ => { fail!() }
-                    }
-                }
-            }
-        }
-    }
-}
-
-
-// We must be already within the '#"
-fn skip_comment(rd: &mut MemReader) {
-    loop {
-        if rd.eof() { return }
-        match read_char(rd) {
-            '\n' => { return }
-            _ => { }
-        }
-    }
-}
 
 trait Visitor {
     fn section(&mut self, name: ~str, is_array: bool) -> bool;
@@ -151,6 +70,78 @@ impl Visitor for TOMLVisitor {
                 return ok
             }
             _ => { return false }
+        }
+    }
+}
+
+// parse values recursivly
+fn parse_value(rd: &mut MemReader, current_char: Option<char>) -> (Option<Value>, Option<char>) {
+    let mut current_char = skip_whitespaces(rd, current_char);
+
+    if current_char.is_none() { return (None, current_char) }
+    let ch = current_char.unwrap();
+    match ch {
+        '0' .. '9' => {
+            let (num, ch) = read_token(rd, current_char, |ch| {
+                match ch {
+                    '0' .. '9' => true,
+                    _ => false
+                }
+            });
+            match from_str(num) {
+              Some(n) => return (Some(Unsigned(n)), ch),
+              None => return (None, ch)
+            }
+        }
+        't' => {
+            current_char = read_char_opt(rd);
+            if current_char != Some('r') { return (None, current_char) }
+            current_char = read_char_opt(rd);
+            if current_char != Some('u') { return (None, current_char) }
+            current_char = read_char_opt(rd);
+            if current_char != Some('e') { return (None, current_char) }
+            current_char = read_char_opt(rd);
+
+            return (Some(True), current_char)
+        }
+        'f' => {
+            current_char = read_char_opt(rd);
+            if current_char != Some('a') { return (None, current_char) }
+            current_char = read_char_opt(rd);
+            if current_char != Some('l') { return (None, current_char) }
+            current_char = read_char_opt(rd);
+            if current_char != Some('s') { return (None, current_char) }
+            current_char = read_char_opt(rd);
+            if current_char != Some('e') { return (None, current_char) }
+            current_char = read_char_opt(rd);
+
+            return (Some(False), current_char)
+        }
+        '"' => {
+            current_char = read_char_opt(rd);
+            let (str, ch) = read_token(rd, current_char, |ch| {
+                match ch {
+                    '"' => false,
+                    _ => true
+                }
+            });
+            current_char = ch;
+
+            if current_char != Some('"') { return (None, current_char) } 
+            current_char = read_char_opt(rd);
+            return (Some(String(str)), current_char)
+        }
+        _ => { return (None, current_char) }
+    }
+}
+
+// We must be already within the '#"
+fn skip_comment(rd: &mut MemReader) {
+    loop {
+        if rd.eof() { return }
+        match read_char(rd) {
+            '\n' => { return }
+            _ => { }
         }
     }
 }
@@ -261,8 +252,14 @@ fn parse<V: Visitor>(rd: &mut MemReader, visitor: &mut V) -> bool {
                 // assign wanted
                 if current_char != Some('=') { return false }
                 
-                // XXX: current_char = read_char_opt(rd); // advance
-                visitor.pair(ident, parse_value(rd)); // XXX: parse_value is not using peeking yet
+                current_char = read_char_opt(rd); // advance
+                let (val, ch) = parse_value(rd, current_char);
+                current_char = ch;
+                match val {
+                  Some(v) => { visitor.pair(ident, v); }
+                  None => { return false; }
+                }
+                continue; // do not advance!
             }
 
             _ => { return false }
