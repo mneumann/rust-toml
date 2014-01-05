@@ -84,6 +84,7 @@ fn parse_value(rd: &mut MemReader) -> Value {
                     let ch = read_char(rd);
                     match ch { 
                         '\r' | '\n' | ' ' | '\t' => { state = st_got_number }
+                        '#' => { skip_comment(rd); state = st_got_number } 
                         '0' .. '9' => {
                             val.push_char(ch);
                         }
@@ -91,6 +92,18 @@ fn parse_value(rd: &mut MemReader) -> Value {
                     }
                 }
             }
+        }
+    }
+}
+
+
+// We must be already within the '#"
+fn skip_comment(rd: &mut MemReader) {
+    loop {
+        if rd.eof() { return }
+        match read_char(rd) {
+            '\n' => { return }
+            _ => { }
         }
     }
 }
