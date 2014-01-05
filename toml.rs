@@ -116,7 +116,7 @@ fn skip_comment(rd: &mut MemReader) {
 }
 
 trait Visitor {
-    fn section(&mut self, name: &str, is_array: bool) -> bool;
+    fn section(&mut self, name: ~str, is_array: bool) -> bool;
     fn pair(&mut self, key: &str, val: Value) -> bool;
 }
 
@@ -136,10 +136,10 @@ impl TOMLVisitor {
 }
 
 impl Visitor for TOMLVisitor {
-    fn section(&mut self, name: &str, is_array: bool) -> bool {
+    fn section(&mut self, name: ~str, is_array: bool) -> bool {
         debug!("Section: {} (is_array={})", name, is_array);
         self.is_array = is_array;
-        self.current_path = name.to_owned();
+        self.current_path = name;
         return true
     }
     fn pair(&mut self, key: &str, val: Value) -> bool {
@@ -158,9 +158,6 @@ impl Visitor for TOMLVisitor {
 fn parse<V: Visitor>(rd: &mut MemReader, visitor: &mut V) -> bool {
     enum State {
         st_toplevel,
-        st_section,
-        st_section_or_double_section,
-        st_double_section,
         st_ident,
         st_assign_wanted,
         st_value_wanted
@@ -194,7 +191,41 @@ fn parse<V: Visitor>(rd: &mut MemReader, visitor: &mut V) -> bool {
                     }
 
                     // section
-                    '[' => { state = st_section_or_double_section }
+                    '[' => {
+                        current_char = read_char_opt(rd); // advance
+                        let mut double_section = false;
+                        match current_char {
+                            Some('[') => {
+                                double_section = true;
+                                current_char = read_char_opt(rd); // advance
+                            }
+                            _ => {} 
+                        }
+                        let mut section = ~"";
+                        loop {
+                            if current_char.is_none() { return false }
+                            let ch = current_char.unwrap();
+                            match ch { 
+                                'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '.' | '_'=> {
+                                    section.push_char(ch);
+                                }
+                                ']' => {
+                                    break
+                                }
+                                _ => { return false }
+                            }
+                            current_char = read_char_opt(rd); // advance
+                        }
+
+                        assert!(current_char == Some(']'));
+
+                        if double_section {
+                            current_char = read_char_opt(rd); // advance
+                            if current_char != Some(']') { return false }
+                        }
+
+                        visitor.section(section, double_section);
+                    }
 
                     // identifier
                     'a' .. 'z' | 'A' .. 'Z' | '_' => {
@@ -202,65 +233,6 @@ fn parse<V: Visitor>(rd: &mut MemReader, visitor: &mut V) -> bool {
                         buf.push_char(ch)
                     }
 
-                    _ => { return false }
-                }
-                current_char = read_char_opt(rd); // advance
-            }
-            st_section_or_double_section => {
-                if current_char.is_none() { return false }
-                let ch = current_char.unwrap();
-                match ch {
-                    'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '.' | '_'=> {
-                        buf.push_char(ch);
-                        state = st_section;
-                    }
-                    '[' => {
-                        state = st_double_section;
-                    }
-                    ']' => {
-                        // empty section
-                        assert!(buf.len() == 0);
-                        visitor.section(buf, false);
-                        buf.truncate(0);
-                        state = st_toplevel;
-                    }
-                    _ => { return false }
-                }
-                current_char = read_char_opt(rd); // advance
-            }
-            st_double_section => {
-                if current_char.is_none() { return false }
-                let ch = current_char.unwrap();
-                match ch {
-                    'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '.' | '_'=> {
-                        buf.push_char(ch);
-                    }
-                    ']' => {
-                        current_char = read_char_opt(rd); // advance
-                        match current_char {
-                            Some(']') => {}
-                            _         => {return false} // error
-                        }
-                        visitor.section(buf, true);
-                        buf.truncate(0);
-                        state = st_toplevel;
-                    }
-                    _ => { return false }
-                }
-                current_char = read_char_opt(rd); // advance
-            }
-            st_section => {
-                if current_char.is_none() { return false }
-                let ch = current_char.unwrap();
-                match ch {
-                    'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '.' | '_'=> {
-                        buf.push_char(ch);
-                    }
-                    ']' => {
-                        visitor.section(buf, false);
-                        buf.truncate(0);
-                        state = st_toplevel;
-                    }
                     _ => { return false }
                 }
                 current_char = read_char_opt(rd); // advance
