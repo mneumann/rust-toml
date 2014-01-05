@@ -23,7 +23,7 @@ enum Value {
     String(~str),
     Array(~[Value]),
     Datetime, // XXX
-    Map(HashMap<~str, Value>)
+    Map(HashMap<~str, Value>) // XXX: This is no value
 }
 
 // parse values recursivly
@@ -108,7 +108,45 @@ fn skip_comment(rd: &mut MemReader) {
     }
 }
 
-fn parse(rd: &mut MemReader) -> HashMap<~str, Value> {
+trait Visitor {
+    fn section(&mut self, name: &str, is_array: bool);
+    fn pair(&mut self, key: &str, val: Value); 
+}
+
+struct MyVisitor {
+    root: HashMap<~str, Value>,
+    current_path: ~str
+}
+
+impl MyVisitor {
+    fn new() -> MyVisitor {
+        MyVisitor { root: HashMap::new(), current_path: ~"" }
+    }
+    fn get_root<'a>(&'a self) -> &'a HashMap<~str, Value> {
+        return &self.root;
+    }
+}
+
+impl Visitor for MyVisitor {
+    fn section(&mut self, name: &str, is_array: bool) {
+        assert!(is_array == false);
+        debug!("Section: {}", name);
+        self.current_path = name.to_owned(); //clone();
+    }
+    fn pair(&mut self, key: &str, val: Value) {
+        debug!("Pair: {} {:s}", key, val.to_str());
+        let mut m = self.root.find_or_insert(self.current_path.clone(), Map(HashMap::new())); // XXX: remove clone
+        match *m {
+            Map(ref mut map) => {
+                let fresh = map.insert(key.to_owned(), val);
+                assert!(fresh == true);
+            }
+            _ => { fail!("Invalid TOML") }
+        }
+    }
+}
+
+fn parse<V: Visitor>(rd: &mut MemReader, visitor: &mut V) {
     enum State {
         st_toplevel,
         st_comment,
@@ -120,9 +158,6 @@ fn parse(rd: &mut MemReader) -> HashMap<~str, Value> {
 
     let mut state = st_toplevel;
     let mut buf: ~str = ~"";
-    let mut path: ~str = ~"";
-
-    let mut root = HashMap::new();
 
     loop {
         match state {
@@ -163,8 +198,7 @@ fn parse(rd: &mut MemReader) -> HashMap<~str, Value> {
                         buf.push_char(ch);
                     }
                     ']' => {
-                        debug!("Section: {}", buf);
-                        path = buf.clone();
+                        visitor.section(buf, false);
                         buf.truncate(0);
                         state = st_toplevel;
                     }
@@ -195,34 +229,18 @@ fn parse(rd: &mut MemReader) -> HashMap<~str, Value> {
                 }
             }
             st_value_wanted => {
-                debug!("Key: {}", buf);
-                let val = parse_value(rd);
-
-                debug!("Value: {:?}", val);
-                debug!("Path: {}", path);
-
-                // XXX: split path
-                let mut m = root.find_or_insert(path.clone(), Map(HashMap::new())); // XXX: remove clone
-                match *m {
-                    Map(ref mut map) => {
-                        let fresh = map.insert(buf.clone(), val);
-                        assert!(fresh == true);
-                    }
-                    _ => { fail!("Invalid TOML") }
-                }
-
+                visitor.pair(buf, parse_value(rd));
                 buf.truncate(0);
                 state = st_toplevel;
             }
         }
     }
-
-    return root;
 }
 
 fn main() {
   let contents = File::open(&Path::new(std::os::args()[1])).read_to_end();
   let mut rd = MemReader::new(contents);
-  let root = parse(&mut rd);
-  println!("{:s}", root.to_str());
+  let mut visitor = MyVisitor::new();
+  parse(&mut rd, &mut visitor);
+  println!("{:s}", visitor.get_root().to_str());
 }
