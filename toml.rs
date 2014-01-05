@@ -13,6 +13,13 @@ fn read_char(rd: &mut MemReader) -> char {
   }
 }
 
+fn read_char_opt(rd: &mut MemReader) -> Option<char> {
+  match rd.read_byte() {
+    Some(b) => Some(b as char),
+    None => None
+  }
+}
+
 #[deriving(ToStr)]
 enum Value {
     True,
@@ -145,11 +152,10 @@ impl Visitor for TOMLVisitor {
             }
             _ => { return false }
         }
-        return true
     }
 }
 
-fn parse<V: Visitor>(rd: &mut MemReader, visitor: &mut V) {
+fn parse<V: Visitor>(rd: &mut MemReader, visitor: &mut V) -> bool {
     enum State {
         st_toplevel,
         st_comment,
@@ -164,11 +170,13 @@ fn parse<V: Visitor>(rd: &mut MemReader, visitor: &mut V) {
     let mut state = st_toplevel;
     let mut buf: ~str = ~"";
 
+    let mut current_char: Option<char> = read_char_opt(rd);
+
     loop {
         match state {
             st_toplevel => {
-                if rd.eof() { break }
-                let ch = read_char(rd);
+                if current_char.is_none() { return true }
+                let ch = current_char.unwrap();
                 match ch {
                     // ignore whitespace
                     '\r' | '\n' | ' ' | '\t' => { }
@@ -185,19 +193,21 @@ fn parse<V: Visitor>(rd: &mut MemReader, visitor: &mut V) {
                         buf.push_char(ch)
                     }
 
-                    _ => { fail!() }
+                    _ => { return false }
                 }
+                current_char = read_char_opt(rd); // advance
             }
             st_comment => {
-                if rd.eof() { break }
-                match read_char(rd) {
+                if current_char.is_none() { return true }
+                match current_char.unwrap() {
                     '\n' => { state = st_toplevel }
                     _ => { }
                 }
+                current_char = read_char_opt(rd); // advance
             }
             st_section_or_double_section => {
-                if rd.eof() { fail!() }
-                let ch = read_char(rd);
+                if current_char.is_none() { return false }
+                let ch = current_char.unwrap();
                 match ch {
                     'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '.' | '_'=> {
                         buf.push_char(ch);
@@ -205,7 +215,7 @@ fn parse<V: Visitor>(rd: &mut MemReader, visitor: &mut V) {
                     }
                     '[' => {
                         state = st_double_section;
-                    } 
+                    }
                     ']' => {
                         // empty section
                         assert!(buf.len() == 0);
@@ -213,29 +223,34 @@ fn parse<V: Visitor>(rd: &mut MemReader, visitor: &mut V) {
                         buf.truncate(0);
                         state = st_toplevel;
                     }
-                    _ => { fail!() }
+                    _ => { return false }
                 }
-
+                current_char = read_char_opt(rd); // advance
             }
             st_double_section => {
-                if rd.eof() { fail!() }
-                let ch = read_char(rd);
+                if current_char.is_none() { return false }
+                let ch = current_char.unwrap();
                 match ch {
                     'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '.' | '_'=> {
                         buf.push_char(ch);
                     }
                     ']' => {
-                        assert!(read_char(rd) == ']');
+                        current_char = read_char_opt(rd); // advance
+                        match current_char {
+                            Some(']') => {}
+                            _         => {return false} // error
+                        }
                         visitor.section(buf, true);
                         buf.truncate(0);
                         state = st_toplevel;
                     }
-                    _ => { fail!() }
+                    _ => { return false }
                 }
+                current_char = read_char_opt(rd); // advance
             }
             st_section => {
-                if rd.eof() { fail!() }
-                let ch = read_char(rd);
+                if current_char.is_none() { return false }
+                let ch = current_char.unwrap();
                 match ch {
                     'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '.' | '_'=> {
                         buf.push_char(ch);
@@ -245,12 +260,13 @@ fn parse<V: Visitor>(rd: &mut MemReader, visitor: &mut V) {
                         buf.truncate(0);
                         state = st_toplevel;
                     }
-                    _ => { fail!() }
+                    _ => { return false }
                 }
+                current_char = read_char_opt(rd); // advance
             }
             st_ident => {
-                if rd.eof() { fail!() }
-                let ch = read_char(rd);
+                if current_char.is_none() { return false }
+                let ch = current_char.unwrap();
                 match ch {
                     'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '_'=> {
                         buf.push_char(ch);
@@ -260,24 +276,29 @@ fn parse<V: Visitor>(rd: &mut MemReader, visitor: &mut V) {
 
                     '=' => { state = st_value_wanted }
 
-                    _ => { fail!() }
+                    _ => { return false }
                 }
+                current_char = read_char_opt(rd); // advance
             }
             st_assign_wanted => {
-                if rd.eof() { fail!() }
-                match read_char(rd) {
+                if current_char.is_none() { return false }
+                match current_char.unwrap() {
                     '\r' | '\n' | ' ' | '\t' => { } 
                     '=' => { state = st_value_wanted }
-                    _ => { fail!() }
+                    _ => { return false }
                 }
+                current_char = read_char_opt(rd); // advance
             }
             st_value_wanted => {
                 visitor.pair(buf, parse_value(rd));
                 buf.truncate(0);
                 state = st_toplevel;
+                current_char = read_char_opt(rd); // advance
             }
         }
     }
+
+    assert!(false);
 }
 
 fn main() {
