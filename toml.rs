@@ -19,8 +19,8 @@ pub enum Value {
     String(~str),
     Array(~[Value]),
     Datetime(u16,u8,u8,u8,u8,u8),
-    Table(~[Value]),
-    Map(HashMap<~str, Value>)
+    TableArray(~[HashMap<~str, Value>]),
+    Table(HashMap<~str, Value>)
 }
 
 pub trait Visitor {
@@ -59,9 +59,9 @@ impl ValueBuilder {
             return ok;
         }
         else {
-            let m = ht.find_or_insert(head, Map(HashMap::new())); // Optimize
+            let m = ht.find_or_insert(head, Table(HashMap::new())); // Optimize
             match *m {
-                Map(ref mut map) => {
+                Table(ref mut map) => {
                     return ValueBuilder::ins(path.slice_from(1), map, val);
                 }
                 _ => {
@@ -79,7 +79,7 @@ impl ValueBuilder {
 
 impl Visitor for ValueBuilder {
     fn section(&mut self, name: ~str, is_array: bool) -> bool {
-        let ok = self.insert(name, Map(HashMap::new()));
+        let ok = self.insert(name, Table(HashMap::new()));
         if !ok {
             debug!("Duplicate key: {}", name);
         }
@@ -123,7 +123,7 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
         let mut builder = ValueBuilder::new();
         let mut parser = Parser::new(rd);
         if parser.parse(&mut builder) {
-            return Some(Map(builder.get_root().clone()));
+            return Some(Table(builder.get_root().clone()));
         } else {
             return None;
         }
