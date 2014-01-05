@@ -109,8 +109,8 @@ fn skip_comment(rd: &mut MemReader) {
 }
 
 trait Visitor {
-    fn section(&mut self, name: &str, is_array: bool);
-    fn pair(&mut self, key: &str, val: Value); 
+    fn section(&mut self, name: &str, is_array: bool) -> bool;
+    fn pair(&mut self, key: &str, val: Value) -> bool;
 }
 
 struct MyVisitor {
@@ -128,21 +128,23 @@ impl MyVisitor {
 }
 
 impl Visitor for MyVisitor {
-    fn section(&mut self, name: &str, is_array: bool) {
+    fn section(&mut self, name: &str, is_array: bool) -> bool {
         assert!(is_array == false);
         debug!("Section: {}", name);
-        self.current_path = name.to_owned(); //clone();
+        self.current_path = name.to_owned();
+        return true
     }
-    fn pair(&mut self, key: &str, val: Value) {
+    fn pair(&mut self, key: &str, val: Value) -> bool {
         debug!("Pair: {} {:s}", key, val.to_str());
         let mut m = self.root.find_or_insert(self.current_path.clone(), Map(HashMap::new())); // XXX: remove clone
         match *m {
             Map(ref mut map) => {
-                let fresh = map.insert(key.to_owned(), val);
-                assert!(fresh == true);
+                let ok = map.insert(key.to_owned(), val);
+                return ok
             }
-            _ => { fail!("Invalid TOML") }
+            _ => { return false }
         }
+        return true
     }
 }
 
