@@ -65,20 +65,13 @@ struct Parser<'a> {
 }
 
 impl<'a> Parser<'a> {
-    fn read_char(rd: &mut MemReader) -> Option<char> {
-        match rd.read_byte() {
-            Some(b) => Some(b as char),
-            None => None
-        }
-    }
-
     fn new(rd: &'a mut MemReader) -> Parser<'a> {
-        let ch = Parser::read_char(rd);
+        let ch = rd.read_char();
         Parser { rd: rd, current_char: ch }
     }
 
     fn advance(&mut self) {
-        self.current_char = Parser::read_char(self.rd)
+        self.current_char = self.rd.read_char();
     }
 
     fn ch(&self) -> Option<char> {
@@ -307,9 +300,6 @@ impl<'a> Parser<'a> {
                     return Some(str);
                 }
                 c => {
-                    let len = std::char::len_utf8_bytes(c);
-                    //assert!(len >= 1 && len <= 4);
-                    assert!(len == 1);
                     str.push_char(c);
                     self.advance();
                 }
