@@ -122,13 +122,13 @@ trait Visitor {
 
 struct TOMLVisitor {
     root: HashMap<~str, Value>,
-    current_path: ~str,
-    is_array: bool
+    current_section: ~str,
+    section_is_array: bool
 }
 
 impl TOMLVisitor {
     fn new() -> TOMLVisitor {
-        TOMLVisitor { root: HashMap::new(), current_path: ~"", is_array: false }
+        TOMLVisitor { root: HashMap::new(), current_section: ~"", section_is_array: false }
     }
     fn get_root<'a>(&'a self) -> &'a HashMap<~str, Value> {
         return &self.root;
@@ -138,13 +138,13 @@ impl TOMLVisitor {
 impl Visitor for TOMLVisitor {
     fn section(&mut self, name: ~str, is_array: bool) -> bool {
         debug!("Section: {} (is_array={})", name, is_array);
-        self.is_array = is_array;
-        self.current_path = name;
+        self.section_is_array = is_array;
+        self.current_section = name;
         return true
     }
     fn pair(&mut self, key: ~str, val: Value) -> bool {
         debug!("Pair: {} {:s}", key, val.to_str());
-        let mut m = self.root.find_or_insert(self.current_path.clone(), Map(HashMap::new())); // XXX: remove clone
+        let mut m = self.root.find_or_insert(self.current_section.clone(), Map(HashMap::new())); // XXX: remove clone
         match *m {
             Map(ref mut map) => {
                 let ok = map.insert(key, val);
