@@ -101,32 +101,25 @@ impl<'a> Parser<'a> {
         } 
     }
 
-    fn read_digit(&mut self) -> Option<u8> {
-        let res = match self.ch() {
-            Some('0') => Some(0),
-            Some('1') => Some(1),
-            Some('2') => Some(2),
-            Some('3') => Some(3),
-            Some('4') => Some(4),
-            Some('5') => Some(5),
-            Some('6') => Some(6),
-            Some('7') => Some(7),
-            Some('8') => Some(8),
-            Some('9') => Some(9),
-            _ => None
-        };
-        if res.is_some() { self.advance() }
-        return res
+    fn read_digit(&mut self, radix: uint) -> Option<u8> {
+        if self.eos() { return None }
+        match std::char::to_digit(self.ch().unwrap(), radix) {
+            Some(n) => {
+                self.advance();
+                Some(n as u8)
+            }
+            None => { None }
+        }
     }
 
     fn read_digits(&mut self) -> Option<u64> {
         let mut num: u64;
-        match self.read_digit() {
+        match self.read_digit(10) {
             Some(n) => { num = n as u64; }
             None => { return None }
         }
         loop {
-            match self.read_digit() {
+            match self.read_digit(10) {
                 Some(n) => {
                     // XXX: check range
                     num = num * 10 + (n as u64);
@@ -144,7 +137,7 @@ impl<'a> Parser<'a> {
         let mut div: f64 = 10.0;
 
         loop {
-            match self.read_digit() {
+            match self.read_digit(10) {
                 Some(n) => {
                     num = num + (n as f64)/div;
                     div = div * 10.0;
@@ -255,22 +248,75 @@ impl<'a> Parser<'a> {
                 }
             }
             '"' => {
-                self.advance();
-                let str = self.read_token(|ch| {
-                    match ch {
-                        '"' => false,
-                        _ => true
-                    }
-                });
-                if self.advance_if('"') {
-                    return Some(String(str))
-                } else {
-                    return None
+                match self.parse_string() {
+                    Some(str) => { return Some(String(str)) }
+                    None => { return None }
                 }
             }
             _ => { return None }
         }
     }
+
+    fn parse_string(&mut self) -> Option<~str> {
+        if !self.advance_if('"') { return None }
+
+        let mut str = ~"";
+        loop {
+            if self.ch().is_none() { return None }
+            match self.ch().unwrap() {
+                '\r' | '\n' | '\u000C' | '\u0008' => { return None }
+                '\\' => {
+                    self.advance();
+                    if self.ch().is_none() { return None }
+                    match self.ch().unwrap() {
+                        'b' => { str.push_char('\u0008'); self.advance() },
+                        't' => { str.push_char('\t'); self.advance() },
+                        'n' => { str.push_char('\n'); self.advance() },
+                        'f' => { str.push_char('\u000C'); self.advance() },
+                        'r' => { str.push_char('\r'); self.advance() },
+                        '"' => { str.push_char('"'); self.advance() },
+                        '/' => { str.push_char('/'); self.advance() },
+                        '\\' => { str.push_char('\\'); self.advance() },
+                        'u' => {
+                            self.advance();
+                            let d1 = self.read_digit(16);
+                            let d2 = self.read_digit(16);
+                            let d3 = self.read_digit(16);
+                            let d4 = self.read_digit(16);
+                            match (d1, d2, d3, d4) {
+                                (Some(d1), Some(d2), Some(d3), Some(d4)) => {
+                                    // XXX: how to construct an UTF character
+                                    let ch = (((((d1 as u32 << 8) | d2 as u32) << 8) | d3 as u32) << 8) | d4 as u32;
+                                    match std::char::from_u32(ch) {
+                                        Some(ch) => {
+                                            str.push_char(ch);
+                                        }
+                                        None => {
+                                            return None;
+                                        }
+                                    }
+                                }
+                                _ => return None
+                            }
+                        }
+                        _ => { return None }
+                    }
+                }
+                '"' => {
+                    self.advance();
+                    return Some(str);
+                }
+                c => {
+                    let len = std::char::len_utf8_bytes(c);
+                    //assert!(len >= 1 && len <= 4);
+                    assert!(len == 1);
+                    str.push_char(c);
+                    self.advance();
+                }
+            }
+        }
+    }
+
 
     fn read_token(&mut self, f: |char| -> bool) -> ~str {
         let mut token = ~"";
