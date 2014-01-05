@@ -1,13 +1,15 @@
 /// A TOML [1] configuration file parser
 ///
+/// Copyright (c) 2014 by Michael Neumann
+///
 /// [1]: https://github.com/mojombo/toml
 
-use std::io::mem::MemReader;
-use std::io::File;
+use std::io::Buffer;
 use std::hashmap::HashMap;
+use std::char;
 
 #[deriving(ToStr)]
-enum Value {
+pub enum Value {
     True,
     False,
     Unsigned(u64),
@@ -19,27 +21,27 @@ enum Value {
     Map(HashMap<~str, Value>) // XXX: This is no value
 }
 
-trait Visitor {
+pub trait Visitor {
     fn section(&mut self, name: ~str, is_array: bool) -> bool;
     fn pair(&mut self, key: ~str, val: Value) -> bool;
 }
 
-struct TOMLVisitor {
+pub struct ValueBuilder {
     root: HashMap<~str, Value>,
     current_section: ~str,
     section_is_array: bool
 }
 
-impl TOMLVisitor {
-    fn new() -> TOMLVisitor {
-        TOMLVisitor { root: HashMap::new(), current_section: ~"", section_is_array: false }
+impl ValueBuilder {
+    pub fn new() -> ValueBuilder {
+        ValueBuilder { root: HashMap::new(), current_section: ~"", section_is_array: false }
     }
-    fn get_root<'a>(&'a self) -> &'a HashMap<~str, Value> {
+    pub fn get_root<'a>(&'a self) -> &'a HashMap<~str, Value> {
         return &self.root;
     }
 }
 
-impl Visitor for TOMLVisitor {
+impl Visitor for ValueBuilder {
     fn section(&mut self, name: ~str, is_array: bool) -> bool {
         debug!("Section: {} (is_array={})", name, is_array);
         self.section_is_array = is_array;
@@ -59,13 +61,13 @@ impl Visitor for TOMLVisitor {
     }
 }
 
-struct Parser<'a> {
-    rd: &'a mut MemReader,
+pub struct Parser<'a, BUF> {
+    rd: &'a mut BUF,
     current_char: Option<char>
 }
 
-impl<'a> Parser<'a> {
-    fn new(rd: &'a mut MemReader) -> Parser<'a> {
+impl<'a, BUF: Buffer> Parser<'a, BUF> {
+    pub fn new(rd: &'a mut BUF) -> Parser<'a, BUF> {
         let ch = rd.read_char();
         Parser { rd: rd, current_char: ch }
     }
@@ -96,7 +98,7 @@ impl<'a> Parser<'a> {
 
     fn read_digit(&mut self, radix: uint) -> Option<u8> {
         if self.eos() { return None }
-        match std::char::to_digit(self.ch().unwrap(), radix) {
+        match char::to_digit(self.ch().unwrap(), radix) {
             Some(n) => {
                 self.advance();
                 Some(n as u8)
@@ -280,7 +282,7 @@ impl<'a> Parser<'a> {
                                 (Some(d1), Some(d2), Some(d3), Some(d4)) => {
                                     // XXX: how to construct an UTF character
                                     let ch = (((((d1 as u32 << 8) | d2 as u32) << 8) | d3 as u32) << 8) | d4 as u32;
-                                    match std::char::from_u32(ch) {
+                                    match char::from_u32(ch) {
                                         Some(ch) => {
                                             str.push_char(ch);
                                         }
@@ -306,7 +308,6 @@ impl<'a> Parser<'a> {
             }
         }
     }
-
 
     fn read_token(&mut self, f: |char| -> bool) -> ~str {
         let mut token = ~"";
@@ -372,7 +373,7 @@ impl<'a> Parser<'a> {
         self.advance();
     }
 
-    fn parse<V: Visitor>(&mut self, visitor: &mut V) -> bool {
+    pub fn parse<V: Visitor>(&mut self, visitor: &mut V) -> bool {
         loop {
             if self.eos() { return true }
             match self.ch().unwrap() {
@@ -435,13 +436,4 @@ impl<'a> Parser<'a> {
 
         assert!(false);
     }
-}
-
-fn main() {
-  let contents = File::open(&Path::new(std::os::args()[1])).read_to_end();
-  let mut visitor = TOMLVisitor::new();
-  let mut rd = MemReader::new(contents);
-  let mut parser = Parser::new(&mut rd);
-  parser.parse(&mut visitor);
-  println!("{:s}", visitor.get_root().to_str());
 }
