@@ -6,13 +6,6 @@ use std::io::mem::MemReader;
 use std::io::File;
 use std::hashmap::HashMap;
 
-fn read_char_opt(rd: &mut MemReader) -> Option<char> {
-  match rd.read_byte() {
-    Some(b) => Some(b as char),
-    None => None
-  }
-}
-
 #[deriving(ToStr)]
 enum Value {
     True,
@@ -67,86 +60,123 @@ impl Visitor for TOMLVisitor {
     }
 }
 
-// parse values recursivly
-fn parse_value(rd: &mut MemReader, current_char: Option<char>) -> (Option<Value>, Option<char>) {
-    let mut current_char = skip_whitespaces(rd, current_char);
+fn read_char_opt(rd: &mut MemReader) -> Option<char> {
+  match rd.read_byte() {
+    Some(b) => Some(b as char),
+    None => None
+  }
+}
 
-    if current_char.is_none() { return (None, current_char) }
-    let ch = current_char.unwrap();
-    match ch {
+struct Parser<'a> {
+    rd: &'a mut MemReader,
+    current_char: Option<char>
+}
+
+impl<'a> Parser<'a> {
+    fn new(rd: &'a mut MemReader) -> Parser<'a> {
+        let ch = read_char_opt(rd);
+        Parser { rd: rd, current_char: ch }
+    }
+
+    fn advance(&mut self) {
+      self.current_char = read_char_opt(self.rd);
+    }
+
+    fn ch(&self) -> Option<char> {
+        return self.current_char;
+    }
+
+    fn eos(&self) -> bool {
+        return self.current_char.is_none();
+    }
+
+    fn advance_if(&mut self, c: char) -> bool {
+        match self.ch() {
+            Some(c) => {
+               self.advance();
+               true
+            }
+            _ => {
+                false
+            }
+        } 
+    }
+
+// parse values recursivly
+fn parse_value(&mut self) -> Option<Value> {
+    self.skip_whitespaces();
+
+    if self.eos() { return None }
+    match self.ch().unwrap() {
         '0' .. '9' => {
-            let (num, ch) = read_token(rd, current_char, |ch| {
+            let num = self.read_token(|ch| {
                 match ch {
                     '0' .. '9' => true,
                     _ => false
                 }
             });
             match from_str(num) {
-              Some(n) => return (Some(Unsigned(n)), ch),
-              None => return (None, ch)
+              Some(n) => return Some(Unsigned(n)),
+              None => return None
             }
         }
         't' => {
-            current_char = read_char_opt(rd);
-            if current_char != Some('r') { return (None, current_char) }
-            current_char = read_char_opt(rd);
-            if current_char != Some('u') { return (None, current_char) }
-            current_char = read_char_opt(rd);
-            if current_char != Some('e') { return (None, current_char) }
-            current_char = read_char_opt(rd);
-
-            return (Some(True), current_char)
+            self.advance();
+            if self.advance_if('r') &&
+               self.advance_if('u') &&
+               self.advance_if('e') {
+                return Some(True)
+            } else {
+                return None
+            }
         }
         'f' => {
-            current_char = read_char_opt(rd);
-            if current_char != Some('a') { return (None, current_char) }
-            current_char = read_char_opt(rd);
-            if current_char != Some('l') { return (None, current_char) }
-            current_char = read_char_opt(rd);
-            if current_char != Some('s') { return (None, current_char) }
-            current_char = read_char_opt(rd);
-            if current_char != Some('e') { return (None, current_char) }
-            current_char = read_char_opt(rd);
-
-            return (Some(False), current_char)
+            self.advance();
+            if self.advance_if('a') &&
+               self.advance_if('l') &&
+               self.advance_if('s') && 
+               self.advance_if('e') {
+                return Some(True)
+            } else {
+                return None
+            }
         }
         '"' => {
-            current_char = read_char_opt(rd);
-            let (str, ch) = read_token(rd, current_char, |ch| {
+            self.advance();
+            let str = self.read_token(|ch| {
                 match ch {
                     '"' => false,
                     _ => true
                 }
             });
-            current_char = ch;
-
-            if current_char != Some('"') { return (None, current_char) } 
-            current_char = read_char_opt(rd);
-            return (Some(String(str)), current_char)
+            if self.advance_if('"') {
+                return Some(String(str))
+            } else {
+                return None
+            }
         }
-        _ => { return (None, current_char) }
+        _ => { return None }
     }
 }
 
-fn read_token(rd: &mut MemReader, current_char: Option<char>, f: |char| -> bool) -> (~str, Option<char>) {
-    let mut current_char = current_char;
+fn read_token(&mut self, f: |char| -> bool) -> ~str {
     let mut token = ~"";
     loop {
-        match current_char {
+        match self.ch() {
             Some(ch) => {
                 if f(ch) { token.push_char(ch) }
                 else { break }
             }
             None => { break }
         }
-        current_char = read_char_opt(rd); // advance
+        self.advance();
     }
 
-    return (token, current_char);
+    return token;
 }
 
-fn parse_section_identifier(rd: &mut MemReader, current_char: Option<char>) -> (~str, Option<char>) {
-    read_token(rd, current_char, |ch| {
+fn parse_section_identifier(&mut self) -> ~str {
+    self.read_token(|ch| {
         match ch {
             'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '.' | '_' => true,
             _ => false
@@ -154,65 +184,57 @@ fn parse_section_identifier(rd: &mut MemReader, current_char: Option<char>) -> (
     })
 }
 
-fn skip_whitespaces(rd: &mut MemReader, current_char: Option<char>) -> Option<char> {
-    let mut current_char = current_char;
+fn skip_whitespaces(&mut self) {
     loop {
-        match current_char {
+        match self.ch() {
             Some(' ') | Some('\t') | Some('\r') | Some('\n') => {
-                current_char = read_char_opt(rd); // advance
+                self.advance();
             }
             _ => { break }
         }
     }
-    return current_char;
 }
 
-fn parse<V: Visitor>(rd: &mut MemReader, visitor: &mut V) -> bool {
-    let mut current_char: Option<char> = read_char_opt(rd);
-
+fn parse<V: Visitor>(&mut self, visitor: &mut V) -> bool {
     loop {
-        if current_char.is_none() { return true }
-        let ch = current_char.unwrap();
-        match ch {
+        if self.eos() { return true }
+        match self.ch().unwrap() {
             // ignore whitespace
-            '\r' | '\n' | ' ' | '\t' => { }
+            '\r' | '\n' | ' ' | '\t' => {
+                self.advance();
+            }
 
             // comment
             '#' => {
                 // skip to end of line
                 loop {
-                    current_char = read_char_opt(rd);
-                    match current_char {
+                    self.advance();
+                    match self.ch() {
                         Some('\n') => { break }
                         None => { return true }
                         _ => { /* skip */ }
                     }
                 }
+                self.advance();
             }
 
             // section
             '[' => {
-                current_char = read_char_opt(rd); // advance
+                self.advance();
                 let mut double_section = false;
-                match current_char {
+                match self.ch() {
                     Some('[') => {
                         double_section = true;
-                        current_char = read_char_opt(rd); // advance
+                        self.advance();
                     }
                     _ => {}
                 }
 
-                let (section_name, ch) = parse_section_identifier(rd, current_char);
-                current_char = ch;
+                let section_name = self.parse_section_identifier();
 
-                match current_char {
-                    Some(']') => { /* ok */ }
-                    _ => { return false }
-                }
-
+                if !self.advance_if(']') { return false }
                 if double_section {
-                    current_char = read_char_opt(rd); // advance
-                    if current_char != Some(']') { return false }
+                    if !self.advance_if(']') { return false }
                 }
 
                 visitor.section(section_name, double_section);
@@ -221,41 +243,37 @@ fn parse<V: Visitor>(rd: &mut MemReader, visitor: &mut V) -> bool {
             // identifier
             'a' .. 'z' | 'A' .. 'Z' | '_' => {
 
-                let (ident, ch) = read_token(rd, current_char, |ch| {
+                let ident = self.read_token(|ch| {
                     match ch {
                         'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '_' => true,
                         _ => false
                     }
                 });
 
-                current_char = ch;
-                current_char = skip_whitespaces(rd, current_char);
+                self.skip_whitespaces();
 
-                // assign wanted
-                if current_char != Some('=') { return false }
+                if !self.advance_if('=') { return false } // assign wanted
                 
-                current_char = read_char_opt(rd); // advance
-                let (val, ch) = parse_value(rd, current_char);
-                current_char = ch;
-                match val {
-                  Some(v) => { visitor.pair(ident, v); }
-                  None => { return false; }
+                match self.parse_value() {
+                    Some(val) => { visitor.pair(ident, val); }
+                    None => { return false; }
                 }
-                continue; // do not advance!
+                // do not advance!
             }
 
             _ => { return false }
         } /* end match */
-        current_char = read_char_opt(rd); // advance
     }
 
     assert!(false);
 }
+}
 
 fn main() {
   let contents = File::open(&Path::new(std::os::args()[1])).read_to_end();
-  let mut rd = MemReader::new(contents);
   let mut visitor = TOMLVisitor::new();
-  parse(&mut rd, &mut visitor);
+  let mut rd = MemReader::new(contents);
+  let mut parser = Parser::new(&mut rd);
+  parser.parse(&mut visitor);
   println!("{:s}", visitor.get_root().to_str());
 }
