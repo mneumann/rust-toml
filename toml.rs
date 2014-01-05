@@ -18,7 +18,7 @@ pub enum Value {
     Float(f64),
     String(~str),
     Array(~[Value]),
-    Datetime, // XXX
+    Datetime(u16,u8,u8,u8,u8,u8),
     Table(~[Value]),
     Map(HashMap<~str, Value>)
 }
@@ -169,20 +169,31 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
         }
     }
 
-    fn read_digits(&mut self) -> Option<u64> {
+    fn read_two_digits(&mut self) -> Option<u8> {
+        let d1 = self.read_digit(10);
+        let d2 = self.read_digit(10);
+        match (d1, d2) {
+            (Some(d1), Some(d2)) => Some(d1*10+d2),
+            _ => None
+        }
+    }
+
+    fn read_digits(&mut self) -> (Option<u64>, uint) {
         let mut num: u64;
         match self.read_digit(10) {
             Some(n) => { num = n as u64; }
-            None => { return None }
+            None => { return (None, 0) }
         }
+        let mut ndigits = 1;
         loop {
             match self.read_digit(10) {
                 Some(n) => {
                     // XXX: check range
                     num = num * 10 + (n as u64);
+                    ndigits += 1;
                 }
                 None => {
-                    return Some(num)
+                    return (Some(num), ndigits)
                 }
             }
         }
@@ -214,7 +225,7 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
             '-' => {
                 self.advance();
                 match self.read_digits() {
-                    Some(n) => {
+                    (Some(n), _) => {
                         if self.ch() == Some('.') {
                             // floating point
                             self.advance();
@@ -224,19 +235,19 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
                         }
                         else {
                             match n.to_i64() {
-                                Some(i) => Some(Integer(-i)),
-                                None => None // XXX: Use Result
+                                Some(i) => return Some(Integer(-i)),
+                                None => return None // XXX: Use Result
                             }
                         }
                     }
-                    None => {
+                    (None, _) => {
                         return None
                     }
                 }
             }
             '0' .. '9' => {
                 match self.read_digits() {
-                    Some(n) => {
+                    (Some(n), ndigits) => {
                         match self.ch() {
                             Some('.') => {
                                 // floating point
@@ -246,15 +257,63 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
                                 return Some(Float(num));
                             }
                             Some('-') => {
-                                // XXX
-                                fail!("Datetime not yet supported");
+                                if ndigits != 4 {
+                                    debug!("Invalid Datetime");
+                                    return None;
+                                }
+                                self.advance();
+
+                                let year = n;
+
+                                let month = self.read_two_digits();
+                                if month.is_none() || !self.advance_if('-') {
+                                    debug!("Invalid Datetime");
+                                    return None;
+                                }
+
+                                let day = self.read_two_digits();
+                                if day.is_none() || !self.advance_if('T'){
+                                    debug!("Invalid Datetime");
+                                    return None;
+                                }
+
+                                let hour = self.read_two_digits();
+                                if hour.is_none() || !self.advance_if(':') {
+                                    debug!("Invalid Datetime");
+                                    return None;
+                                }
+
+                                let min = self.read_two_digits();
+                                if min.is_none() || !self.advance_if(':') {
+                                    debug!("Invalid Datetime");
+                                    return None;
+                                }
+
+                                let sec = self.read_two_digits();
+                                if sec.is_none() || !self.advance_if('Z') {
+                                    debug!("Invalid Datetime");
+                                    return None;
+                                }
+
+                                match (year, month, day, hour, min, sec) {
+                                    (y, Some(m), Some(d),
+                                     Some(h), Some(min), Some(s))
+                                    if m > 0 && m <= 12 && d > 0 && d <= 31 &&
+                                       h <= 24 && min <= 60 && s <= 60 => {
+                                        return Some(Datetime(y as u16,m,d,h,min,s))
+                                    }
+                                    _ => {
+                                        debug!("Invalid Datetime range");
+                                        return None;
+                                    }
+                                }
                             }
                             _ => {
                                 return Some(Unsigned(n))
                             }
                         }
                     }
-                    None => {
+                    (None, _) => {
                         assert!(false);
                         return None
                     }
