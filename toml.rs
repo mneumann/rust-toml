@@ -113,24 +113,25 @@ trait Visitor {
     fn pair(&mut self, key: &str, val: Value) -> bool;
 }
 
-struct MyVisitor {
+struct TOMLVisitor {
     root: HashMap<~str, Value>,
-    current_path: ~str
+    current_path: ~str,
+    is_array: bool
 }
 
-impl MyVisitor {
-    fn new() -> MyVisitor {
-        MyVisitor { root: HashMap::new(), current_path: ~"" }
+impl TOMLVisitor {
+    fn new() -> TOMLVisitor {
+        TOMLVisitor { root: HashMap::new(), current_path: ~"", is_array: false }
     }
     fn get_root<'a>(&'a self) -> &'a HashMap<~str, Value> {
         return &self.root;
     }
 }
 
-impl Visitor for MyVisitor {
+impl Visitor for TOMLVisitor {
     fn section(&mut self, name: &str, is_array: bool) -> bool {
-        assert!(is_array == false);
-        debug!("Section: {}", name);
+        debug!("Section: {} (is_array={})", name, is_array);
+        self.is_array = is_array;
         self.current_path = name.to_owned();
         return true
     }
@@ -153,6 +154,8 @@ fn parse<V: Visitor>(rd: &mut MemReader, visitor: &mut V) {
         st_toplevel,
         st_comment,
         st_section,
+        st_section_or_double_section,
+        st_double_section,
         st_ident,
         st_assign_wanted,
         st_value_wanted
@@ -174,7 +177,7 @@ fn parse<V: Visitor>(rd: &mut MemReader, visitor: &mut V) {
                     '#' => { state = st_comment }
 
                     // section
-                    '[' => { state = st_section }
+                    '[' => { state = st_section_or_double_section }
 
                     // identifier
                     'a' .. 'z' | 'A' .. 'Z' | '_' => {
@@ -190,6 +193,44 @@ fn parse<V: Visitor>(rd: &mut MemReader, visitor: &mut V) {
                 match read_char(rd) {
                     '\n' => { state = st_toplevel }
                     _ => { }
+                }
+            }
+            st_section_or_double_section => {
+                if rd.eof() { fail!() }
+                let ch = read_char(rd);
+                match ch {
+                    'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '.' | '_'=> {
+                        buf.push_char(ch);
+                        state = st_section;
+                    }
+                    '[' => {
+                        state = st_double_section;
+                    } 
+                    ']' => {
+                        // empty section
+                        assert!(buf.len() == 0);
+                        visitor.section(buf, false);
+                        buf.truncate(0);
+                        state = st_toplevel;
+                    }
+                    _ => { fail!() }
+                }
+
+            }
+            st_double_section => {
+                if rd.eof() { fail!() }
+                let ch = read_char(rd);
+                match ch {
+                    'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '.' | '_'=> {
+                        buf.push_char(ch);
+                    }
+                    ']' => {
+                        assert!(read_char(rd) == ']');
+                        visitor.section(buf, true);
+                        buf.truncate(0);
+                        state = st_toplevel;
+                    }
+                    _ => { fail!() }
                 }
             }
             st_section => {
@@ -242,7 +283,7 @@ fn parse<V: Visitor>(rd: &mut MemReader, visitor: &mut V) {
 fn main() {
   let contents = File::open(&Path::new(std::os::args()[1])).read_to_end();
   let mut rd = MemReader::new(contents);
-  let mut visitor = MyVisitor::new();
+  let mut visitor = TOMLVisitor::new();
   parse(&mut rd, &mut visitor);
   println!("{:s}", visitor.get_root().to_str());
 }
