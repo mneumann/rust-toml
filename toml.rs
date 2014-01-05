@@ -138,24 +138,76 @@ impl<'a> Parser<'a> {
         }
     }
 
+    // allows a single "."
+    fn read_float_mantissa(&mut self) -> f64 {
+        let mut num: f64 = 0.0;
+        let mut div: f64 = 10.0;
+
+        loop {
+            match self.read_digit() {
+                Some(n) => {
+                    num = num + (n as f64)/div;
+                    div = div * 10.0;
+                }
+                None => {
+                    return num;
+                }
+            }
+        }
+    }
+
     fn parse_value(&mut self) -> Option<Value> {
         self.skip_whitespaces();
 
         if self.eos() { return None }
         match self.ch().unwrap() {
             '-' => {
-                // XXX: floating point
                 self.advance();
                 match self.read_digits() {
-                    Some(n) => return Some(Integer(-(n as i64))), // XXX
-                    None => return None
+                    Some(n) => {
+                        if self.ch() == Some('.') {
+                            // floating point
+                            self.advance();
+                            let num = self.read_float_mantissa();
+                            let num = (n as f64) + num;
+                            return Some(Float(-num));
+                        }
+                        else {
+                            match n.to_i64() {
+                                Some(i) => Some(Integer(-i)),
+                                None => None // XXX: Use Result
+                            }
+                        }
+                    }
+                    None => {
+                        return None
+                    }
                 }
             }
             '0' .. '9' => {
-                // XXX: floating point + datetime
                 match self.read_digits() {
-                    Some(n) => return Some(Unsigned(n)),
-                    None => return None
+                    Some(n) => {
+                        match self.ch() {
+                            Some('.') => {
+                                // floating point
+                                self.advance();
+                                let num = self.read_float_mantissa();
+                                let num = (n as f64) + num;
+                                return Some(Float(num));
+                            }
+                            Some('-') => {
+                                // XXX
+                                fail!("Datetime not yet supported");
+                            }
+                            _ => {
+                                return Some(Unsigned(n))
+                            }
+                        }
+                    }
+                    None => {
+                        assert!(false);
+                        return None
+                    }
                 }
             }
             't' => {
