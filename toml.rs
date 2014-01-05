@@ -19,7 +19,6 @@ enum Value {
     Map(HashMap<~str, Value>) // XXX: This is no value
 }
 
-
 trait Visitor {
     fn section(&mut self, name: ~str, is_array: bool) -> bool;
     fn pair(&mut self, key: ~str, val: Value) -> bool;
@@ -79,7 +78,7 @@ impl<'a> Parser<'a> {
     }
 
     fn advance(&mut self) {
-      self.current_char = read_char_opt(self.rd);
+        self.current_char = read_char_opt(self.rd);
     }
 
     fn ch(&self) -> Option<char> {
@@ -92,7 +91,7 @@ impl<'a> Parser<'a> {
 
     fn advance_if(&mut self, c: char) -> bool {
         match self.ch() {
-            Some(c) => {
+            Some(ch) if ch == c => {
                self.advance();
                true
             }
@@ -102,22 +101,61 @@ impl<'a> Parser<'a> {
         } 
     }
 
-    // parse values recursivly
+    fn read_digit(&mut self) -> Option<u8> {
+        let res = match self.ch() {
+            Some('0') => Some(0),
+            Some('1') => Some(1),
+            Some('2') => Some(2),
+            Some('3') => Some(3),
+            Some('4') => Some(4),
+            Some('5') => Some(5),
+            Some('6') => Some(6),
+            Some('7') => Some(7),
+            Some('8') => Some(8),
+            Some('9') => Some(9),
+            _ => None
+        };
+        if res.is_some() { self.advance() }
+        return res
+    }
+
+    fn read_digits(&mut self) -> Option<u64> {
+        let mut num: u64;
+        match self.read_digit() {
+            Some(n) => { num = n as u64; }
+            None => { return None }
+        }
+        loop {
+            match self.read_digit() {
+                Some(n) => {
+                    // XXX: check range
+                    num = num * 10 + (n as u64);
+                }
+                None => {
+                    return Some(num)
+                }
+            }
+        }
+    }
+
     fn parse_value(&mut self) -> Option<Value> {
         self.skip_whitespaces();
 
         if self.eos() { return None }
         match self.ch().unwrap() {
+            '-' => {
+                // XXX: floating point
+                self.advance();
+                match self.read_digits() {
+                    Some(n) => return Some(Integer(-(n as i64))), // XXX
+                    None => return None
+                }
+            }
             '0' .. '9' => {
-                let num = self.read_token(|ch| {
-                    match ch {
-                        '0' .. '9' => true,
-                        _ => false
-                    }
-                });
-                match from_str(num) {
-                  Some(n) => return Some(Unsigned(n)),
-                  None => return None
+                // XXX: floating point + datetime
+                match self.read_digits() {
+                    Some(n) => return Some(Unsigned(n)),
+                    None => return None
                 }
             }
             't' => {
@@ -139,6 +177,29 @@ impl<'a> Parser<'a> {
                     return Some(True)
                 } else {
                     return None
+                }
+            }
+            '[' => {
+                self.advance();
+                let mut arr = ~[];
+                loop {
+                    match self.parse_value() {
+                        Some(val) => {
+                            arr.push(val);
+                        }
+                        None => {
+                            break;
+                        }
+                    }
+                    
+                    self.skip_whitespaces_and_comments();
+                    if !self.advance_if(',') { break }
+                }
+                self.skip_whitespaces_and_comments();
+                if self.advance_if(']') {
+                    return Some(Array(arr));
+                } else {
+                    return None;
                 }
             }
             '"' => {
@@ -195,6 +256,34 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn skip_whitespaces_and_comments(&mut self) {
+        loop {
+            match self.ch() {
+                Some(' ') | Some('\t') | Some('\r') | Some('\n') => {
+                    self.advance();
+                }
+                Some('#') => {
+                    self.skip_comment();
+                }
+                _ => { break }
+            }
+        }
+    }
+
+    fn skip_comment(&mut self) {
+        assert!(self.ch() == Some('#'));
+        // skip to end of line
+        loop {
+            self.advance();
+            match self.ch() {
+                Some('\n') => { break }
+                None => { return }
+                _ => { /* skip */ }
+            }
+        }
+        self.advance();
+    }
+
     fn parse<V: Visitor>(&mut self, visitor: &mut V) -> bool {
         loop {
             if self.eos() { return true }
@@ -206,16 +295,7 @@ impl<'a> Parser<'a> {
 
                 // comment
                 '#' => {
-                    // skip to end of line
-                    loop {
-                        self.advance();
-                        match self.ch() {
-                            Some('\n') => { break }
-                            None => { return true }
-                            _ => { /* skip */ }
-                        }
-                    }
-                    self.advance();
+                    self.skip_comment();
                 }
 
                 // section
