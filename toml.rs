@@ -158,7 +158,6 @@ impl Visitor for TOMLVisitor {
 fn parse<V: Visitor>(rd: &mut MemReader, visitor: &mut V) -> bool {
     enum State {
         st_toplevel,
-        st_comment,
         st_section,
         st_section_or_double_section,
         st_double_section,
@@ -182,7 +181,17 @@ fn parse<V: Visitor>(rd: &mut MemReader, visitor: &mut V) -> bool {
                     '\r' | '\n' | ' ' | '\t' => { }
 
                     // comment
-                    '#' => { state = st_comment }
+                    '#' => {
+                        // skip to end of line
+                        loop {
+                            current_char = read_char_opt(rd);
+                            match current_char {
+                                Some('\n') => { break }
+                                None => { return true }
+                                _ => { /* skip */ }
+                            }
+                        }
+                    }
 
                     // section
                     '[' => { state = st_section_or_double_section }
@@ -194,14 +203,6 @@ fn parse<V: Visitor>(rd: &mut MemReader, visitor: &mut V) -> bool {
                     }
 
                     _ => { return false }
-                }
-                current_char = read_char_opt(rd); // advance
-            }
-            st_comment => {
-                if current_char.is_none() { return true }
-                match current_char.unwrap() {
-                    '\n' => { state = st_toplevel }
-                    _ => { }
                 }
                 current_char = read_char_opt(rd); // advance
             }
