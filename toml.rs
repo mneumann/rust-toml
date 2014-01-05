@@ -6,13 +6,6 @@ use std::io::mem::MemReader;
 use std::io::File;
 use std::hashmap::HashMap;
 
-fn read_char(rd: &mut MemReader) -> char {
-  match rd.read_byte() {
-    Some(b) => b as char,
-    None => fail!()
-  }
-}
-
 fn read_char_opt(rd: &mut MemReader) -> Option<char> {
   match rd.read_byte() {
     Some(b) => Some(b as char),
@@ -132,17 +125,6 @@ fn parse_value(rd: &mut MemReader, current_char: Option<char>) -> (Option<Value>
             return (Some(String(str)), current_char)
         }
         _ => { return (None, current_char) }
-    }
-}
-
-// We must be already within the '#"
-fn skip_comment(rd: &mut MemReader) {
-    loop {
-        if rd.eof() { return }
-        match read_char(rd) {
-            '\n' => { return }
-            _ => { }
-        }
     }
 }
 
