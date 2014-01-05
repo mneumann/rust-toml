@@ -18,7 +18,8 @@ pub enum Value {
     String(~str),
     Array(~[Value]),
     Datetime, // XXX
-    Map(HashMap<~str, Value>) // XXX: This is no value
+    Table(~[Value]),
+    Map(HashMap<~str, Value>)
 }
 
 pub trait Visitor {
@@ -36,6 +37,39 @@ impl ValueBuilder {
     pub fn new() -> ValueBuilder {
         ValueBuilder { root: HashMap::new(), current_section: ~"", section_is_array: false }
     }
+
+    fn insert(&mut self, path: &str, value: Value) -> bool {
+        assert!(path.len() > 0);
+
+        let p: ~[&str] = path.split_str(".").collect();
+        assert!(p.len() > 0);
+
+        ValueBuilder::ins(p, &mut self.root, value);
+
+        return true;
+    }
+
+    fn ins(path: &[&str], ht: &mut HashMap<~str, Value>, val: Value) {
+        println!("{:?}", path);
+        if path.len() == 0 { return }
+        let head = path.head().to_owned();
+
+        if path.len() == 1 {
+            let ok = ht.insert(head, val);
+            assert!(ok);
+            return;
+        }
+        else {
+            let m = ht.find_or_insert(head, Map(HashMap::new()));
+            match *m {
+                Map(ref mut map) => {
+                    ValueBuilder::ins(path.slice_from(1), map, val);
+                }
+                _ => { fail!() }
+            }
+        }
+    }
+
     pub fn get_root<'a>(&'a self) -> &'a HashMap<~str, Value> {
         return &self.root;
     }
@@ -43,21 +77,26 @@ impl ValueBuilder {
 
 impl Visitor for ValueBuilder {
     fn section(&mut self, name: ~str, is_array: bool) -> bool {
-        debug!("Section: {} (is_array={})", name, is_array);
-        self.section_is_array = is_array;
+        let ok = self.insert(name, Map(HashMap::new()));
+        assert!(ok); // XXX
+
         self.current_section = name;
+        self.section_is_array = is_array; // XXX: not implemented yet
+
         return true
     }
+
     fn pair(&mut self, key: ~str, val: Value) -> bool {
-        debug!("Pair: {} {:s}", key, val.to_str());
-        let m = self.root.find_or_insert(self.current_section.clone(), Map(HashMap::new())); // XXX: remove clone
-        match *m {
-            Map(ref mut map) => {
-                let ok = map.insert(key, val);
-                return ok
-            }
-            _ => { return false }
+        if self.current_section.len() == 0 {
+            let ok = self.insert(key, val);
+            assert!(ok); // XXX
+        } else {
+            let path = self.current_section + "." + key;
+            let ok = self.insert(path, val);
+            assert!(ok); // XXX
         }
+
+        return true;
     }
 }
 
