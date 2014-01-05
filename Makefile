@@ -1,0 +1,2 @@
+build:
+	rustc example.rs
