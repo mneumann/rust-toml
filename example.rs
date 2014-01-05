@@ -1,6 +1,7 @@
 use std::io::mem::MemReader;
 use std::io::buffered::BufferedReader;
 use std::io::File;
+use toml::Parser;
 
 mod toml;
 
@@ -9,11 +10,8 @@ fn main() {
   let mut file = File::open(&path);
 
   //let contents = file.read_to_end();
-  //let mut rd = MemReader::new(contents);
   let mut rd = BufferedReader::new(file);
+  let value = Parser::parse_from_buffer(&mut rd);
 
-  let mut builder = toml::ValueBuilder::new();
-  let mut parser = toml::Parser::new(&mut rd);
-  parser.parse(&mut builder);
-  println!("{:s}", builder.get_root().to_str());
+  println!("{:s}", value.to_str());
 }

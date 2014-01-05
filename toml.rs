@@ -7,8 +7,9 @@
 use std::io::Buffer;
 use std::hashmap::HashMap;
 use std::char;
+use std::io::mem::MemReader;
 
-#[deriving(ToStr)]
+#[deriving(ToStr,Clone)]
 pub enum Value {
     True,
     False,
@@ -116,6 +117,21 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
     pub fn new(rd: &'a mut BUF) -> Parser<'a, BUF> {
         let ch = rd.read_char();
         Parser { rd: rd, current_char: ch }
+    }
+
+    pub fn parse_from_buffer(rd: &mut BUF) -> Option<Value> {
+        let mut builder = ValueBuilder::new();
+        let mut parser = Parser::new(rd);
+        if parser.parse(&mut builder) {
+            return Some(Map(builder.get_root().clone()));
+        } else {
+            return None;
+        }
+    }
+
+    pub fn parse_from_bytes(bytes: ~[u8]) -> Option<Value> {
+        let mut rd = MemReader::new(bytes);
+        return Parser::parse_from_buffer(&mut rd);
     }
 
     fn advance(&mut self) {
