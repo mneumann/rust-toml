@@ -155,6 +155,27 @@ impl Visitor for TOMLVisitor {
     }
 }
 
+fn parse_section_identifier(rd: &mut MemReader, current_char: Option<char>) -> (~str, Option<char>) {
+    let mut current_char = current_char;
+    let mut section_name = ~"";
+    loop {
+        match current_char {
+            Some(ch) => {
+                match ch { 
+                    'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '.' | '_'=> {
+                        section_name.push_char(ch);
+                    }
+                    _ => { break }
+                }
+            }
+            None => { break }
+        }
+        current_char = read_char_opt(rd); // advance
+    }
+
+    return (section_name, current_char);
+}
+
 fn parse<V: Visitor>(rd: &mut MemReader, visitor: &mut V) -> bool {
     enum State {
         st_toplevel,
@@ -199,32 +220,23 @@ fn parse<V: Visitor>(rd: &mut MemReader, visitor: &mut V) -> bool {
                                 double_section = true;
                                 current_char = read_char_opt(rd); // advance
                             }
-                            _ => {} 
-                        }
-                        let mut section = ~"";
-                        loop {
-                            if current_char.is_none() { return false }
-                            let ch = current_char.unwrap();
-                            match ch { 
-                                'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '.' | '_'=> {
-                                    section.push_char(ch);
-                                }
-                                ']' => {
-                                    break
-                                }
-                                _ => { return false }
-                            }
-                            current_char = read_char_opt(rd); // advance
+                            _ => {}
                         }
 
-                        assert!(current_char == Some(']'));
+                        let (section_name, ch) = parse_section_identifier(rd, current_char);
+                        current_char = ch;
+
+                        match current_char {
+                            Some(']') => { /* ok */ }
+                            _ => { return false }
+                        }
 
                         if double_section {
                             current_char = read_char_opt(rd); // advance
                             if current_char != Some(']') { return false }
                         }
 
-                        visitor.section(section, double_section);
+                        visitor.section(section_name, double_section);
                     }
 
                     // identifier
