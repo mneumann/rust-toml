@@ -102,171 +102,171 @@ impl<'a> Parser<'a> {
         } 
     }
 
-// parse values recursivly
-fn parse_value(&mut self) -> Option<Value> {
-    self.skip_whitespaces();
+    // parse values recursivly
+    fn parse_value(&mut self) -> Option<Value> {
+        self.skip_whitespaces();
 
-    if self.eos() { return None }
-    match self.ch().unwrap() {
-        '0' .. '9' => {
-            let num = self.read_token(|ch| {
-                match ch {
-                    '0' .. '9' => true,
-                    _ => false
-                }
-            });
-            match from_str(num) {
-              Some(n) => return Some(Unsigned(n)),
-              None => return None
-            }
-        }
-        't' => {
-            self.advance();
-            if self.advance_if('r') &&
-               self.advance_if('u') &&
-               self.advance_if('e') {
-                return Some(True)
-            } else {
-                return None
-            }
-        }
-        'f' => {
-            self.advance();
-            if self.advance_if('a') &&
-               self.advance_if('l') &&
-               self.advance_if('s') && 
-               self.advance_if('e') {
-                return Some(True)
-            } else {
-                return None
-            }
-        }
-        '"' => {
-            self.advance();
-            let str = self.read_token(|ch| {
-                match ch {
-                    '"' => false,
-                    _ => true
-                }
-            });
-            if self.advance_if('"') {
-                return Some(String(str))
-            } else {
-                return None
-            }
-        }
-        _ => { return None }
-    }
-}
-
-fn read_token(&mut self, f: |char| -> bool) -> ~str {
-    let mut token = ~"";
-    loop {
-        match self.ch() {
-            Some(ch) => {
-                if f(ch) { token.push_char(ch) }
-                else { break }
-            }
-            None => { break }
-        }
-        self.advance();
-    }
-
-    return token;
-}
-
-fn parse_section_identifier(&mut self) -> ~str {
-    self.read_token(|ch| {
-        match ch {
-            'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '.' | '_' => true,
-            _ => false
-        }
-    })
-}
-
-fn skip_whitespaces(&mut self) {
-    loop {
-        match self.ch() {
-            Some(' ') | Some('\t') | Some('\r') | Some('\n') => {
-                self.advance();
-            }
-            _ => { break }
-        }
-    }
-}
-
-fn parse<V: Visitor>(&mut self, visitor: &mut V) -> bool {
-    loop {
-        if self.eos() { return true }
+        if self.eos() { return None }
         match self.ch().unwrap() {
-            // ignore whitespace
-            '\r' | '\n' | ' ' | '\t' => {
-                self.advance();
-            }
-
-            // comment
-            '#' => {
-                // skip to end of line
-                loop {
-                    self.advance();
-                    match self.ch() {
-                        Some('\n') => { break }
-                        None => { return true }
-                        _ => { /* skip */ }
-                    }
-                }
-                self.advance();
-            }
-
-            // section
-            '[' => {
-                self.advance();
-                let mut double_section = false;
-                match self.ch() {
-                    Some('[') => {
-                        double_section = true;
-                        self.advance();
-                    }
-                    _ => {}
-                }
-
-                let section_name = self.parse_section_identifier();
-
-                if !self.advance_if(']') { return false }
-                if double_section {
-                    if !self.advance_if(']') { return false }
-                }
-
-                visitor.section(section_name, double_section);
-            }
-
-            // identifier
-            'a' .. 'z' | 'A' .. 'Z' | '_' => {
-
-                let ident = self.read_token(|ch| {
+            '0' .. '9' => {
+                let num = self.read_token(|ch| {
                     match ch {
-                        'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '_' => true,
+                        '0' .. '9' => true,
                         _ => false
                     }
                 });
-
-                self.skip_whitespaces();
-
-                if !self.advance_if('=') { return false } // assign wanted
-                
-                match self.parse_value() {
-                    Some(val) => { visitor.pair(ident, val); }
-                    None => { return false; }
+                match from_str(num) {
+                  Some(n) => return Some(Unsigned(n)),
+                  None => return None
                 }
-                // do not advance!
             }
-
-            _ => { return false }
-        } /* end match */
+            't' => {
+                self.advance();
+                if self.advance_if('r') &&
+                   self.advance_if('u') &&
+                   self.advance_if('e') {
+                    return Some(True)
+                } else {
+                    return None
+                }
+            }
+            'f' => {
+                self.advance();
+                if self.advance_if('a') &&
+                   self.advance_if('l') &&
+                   self.advance_if('s') && 
+                   self.advance_if('e') {
+                    return Some(True)
+                } else {
+                    return None
+                }
+            }
+            '"' => {
+                self.advance();
+                let str = self.read_token(|ch| {
+                    match ch {
+                        '"' => false,
+                        _ => true
+                    }
+                });
+                if self.advance_if('"') {
+                    return Some(String(str))
+                } else {
+                    return None
+                }
+            }
+            _ => { return None }
+        }
     }
 
-    assert!(false);
-}
+    fn read_token(&mut self, f: |char| -> bool) -> ~str {
+        let mut token = ~"";
+        loop {
+            match self.ch() {
+                Some(ch) => {
+                    if f(ch) { token.push_char(ch) }
+                    else { break }
+                }
+                None => { break }
+            }
+            self.advance();
+        }
+
+        return token;
+    }
+
+    fn parse_section_identifier(&mut self) -> ~str {
+        self.read_token(|ch| {
+            match ch {
+                'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '.' | '_' => true,
+                _ => false
+            }
+        })
+    }
+
+    fn skip_whitespaces(&mut self) {
+        loop {
+            match self.ch() {
+                Some(' ') | Some('\t') | Some('\r') | Some('\n') => {
+                    self.advance();
+                }
+                _ => { break }
+            }
+        }
+    }
+
+    fn parse<V: Visitor>(&mut self, visitor: &mut V) -> bool {
+        loop {
+            if self.eos() { return true }
+            match self.ch().unwrap() {
+                // ignore whitespace
+                '\r' | '\n' | ' ' | '\t' => {
+                    self.advance();
+                }
+
+                // comment
+                '#' => {
+                    // skip to end of line
+                    loop {
+                        self.advance();
+                        match self.ch() {
+                            Some('\n') => { break }
+                            None => { return true }
+                            _ => { /* skip */ }
+                        }
+                    }
+                    self.advance();
+                }
+
+                // section
+                '[' => {
+                    self.advance();
+                    let mut double_section = false;
+                    match self.ch() {
+                        Some('[') => {
+                            double_section = true;
+                            self.advance();
+                        }
+                        _ => {}
+                    }
+
+                    let section_name = self.parse_section_identifier();
+
+                    if !self.advance_if(']') { return false }
+                    if double_section {
+                        if !self.advance_if(']') { return false }
+                    }
+
+                    visitor.section(section_name, double_section);
+                }
+
+                // identifier
+                'a' .. 'z' | 'A' .. 'Z' | '_' => {
+
+                    let ident = self.read_token(|ch| {
+                        match ch {
+                            'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '_' => true,
+                            _ => false
+                        }
+                    });
+
+                    self.skip_whitespaces();
+
+                    if !self.advance_if('=') { return false } // assign wanted
+                    
+                    match self.parse_value() {
+                        Some(val) => { visitor.pair(ident, val); }
+                        None => { return false; }
+                    }
+                    // do not advance!
+                }
+
+                _ => { return false }
+            } /* end match */
+        }
+
+        assert!(false);
+    }
 }
 
 fn main() {
