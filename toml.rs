@@ -48,7 +48,7 @@ impl Visitor for TOMLVisitor {
     }
     fn pair(&mut self, key: ~str, val: Value) -> bool {
         debug!("Pair: {} {:s}", key, val.to_str());
-        let mut m = self.root.find_or_insert(self.current_section.clone(), Map(HashMap::new())); // XXX: remove clone
+        let m = self.root.find_or_insert(self.current_section.clone(), Map(HashMap::new())); // XXX: remove clone
         match *m {
             Map(ref mut map) => {
                 let ok = map.insert(key, val);
@@ -59,26 +59,26 @@ impl Visitor for TOMLVisitor {
     }
 }
 
-fn read_char_opt(rd: &mut MemReader) -> Option<char> {
-  match rd.read_byte() {
-    Some(b) => Some(b as char),
-    None => None
-  }
-}
-
 struct Parser<'a> {
     rd: &'a mut MemReader,
     current_char: Option<char>
 }
 
 impl<'a> Parser<'a> {
+    fn read_char(rd: &mut MemReader) -> Option<char> {
+        match rd.read_byte() {
+            Some(b) => Some(b as char),
+            None => None
+        }
+    }
+
     fn new(rd: &'a mut MemReader) -> Parser<'a> {
-        let ch = read_char_opt(rd);
+        let ch = Parser::read_char(rd);
         Parser { rd: rd, current_char: ch }
     }
 
     fn advance(&mut self) {
-        self.current_char = read_char_opt(self.rd);
+        self.current_char = Parser::read_char(self.rd)
     }
 
     fn ch(&self) -> Option<char> {
