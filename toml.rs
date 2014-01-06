@@ -172,6 +172,7 @@ impl ValueBuilder {
         assert!(path.len() > 0);
 
         let head = path.head().to_owned();
+        if head.is_empty() { return false } // don"t allow empty keys 
 
         if path.len() == 1 {
             if ht.contains_key(&head) {
@@ -670,6 +671,8 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
                     }
 
                     let section_name = self.parse_section_identifier();
+                    // don"t allow empty section names
+                    if section_name.is_empty() { return false }
 
                     if !self.advance_if(']') { return false }
                     if double_section {
@@ -686,7 +689,7 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
                 _ => {
                     let ident = self.read_token(|ch| {
                         match ch {
-                            ' ' | '\t' | '=' | '.' => false,
+                            ' ' | '\t' | '\r' | '\n' | '=' | '.' => false,
                             _ => true
                         }
                     });
