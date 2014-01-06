@@ -13,6 +13,7 @@ use std::io::mem::MemReader;
 
 #[deriving(ToStr,Clone)]
 pub enum Value {
+    NoValue,
     True,
     False,
     Unsigned(u64),
@@ -141,10 +142,6 @@ impl Value {
         });
         return self.lookup_path_elts(path_elts);
     }
-}
-
-pub fn lookup_tree<'a>(value: &'a Option<Value>, path: &str) -> Option<&'a Value> {
-    return value.as_ref().and_then(|a| a.lookup(path));
 }
 
 pub trait Visitor {
@@ -285,17 +282,17 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
         Parser { rd: rd, current_char: ch }
     }
 
-    pub fn parse_from_buffer(rd: &mut BUF) -> Option<Value> {
+    pub fn parse_from_buffer(rd: &mut BUF) -> Value {
         let mut builder = ValueBuilder::new();
         let mut parser = Parser::new(rd);
         if parser.parse(&mut builder) {
-            return Some(Table(builder.get_root().clone()));
+            return Table(builder.get_root().clone());
         } else {
-            return None;
+            return NoValue;
         }
     }
 
-    pub fn parse_from_bytes(bytes: ~[u8]) -> Option<Value> {
+    pub fn parse_from_bytes(bytes: ~[u8]) -> Value {
         let mut rd = MemReader::new(bytes);
         return Parser::parse_from_buffer(&mut rd);
     }
@@ -383,10 +380,10 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
         }
     }
 
-    fn parse_value(&mut self) -> Option<Value> {
+    fn parse_value(&mut self) -> Value {
         self.skip_whitespaces();
 
-        if self.eos() { return None }
+        if self.eos() { return NoValue }
         match self.ch().unwrap() {
             '-' => {
                 self.advance();
@@ -397,17 +394,17 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
                             self.advance();
                             let num = self.read_float_mantissa();
                             let num = (n as f64) + num;
-                            return Some(Float(-num));
+                            return Float(-num);
                         }
                         else {
                             match n.to_i64() {
-                                Some(i) => return Some(Integer(-i)),
-                                None => return None // XXX: Use Result
+                                Some(i) => return Integer(-i),
+                                None => return NoValue // XXX: Use Result
                             }
                         }
                     }
                     (None, _) => {
-                        return None
+                        return NoValue
                     }
                 }
             }
@@ -420,12 +417,12 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
                                 self.advance();
                                 let num = self.read_float_mantissa();
                                 let num = (n as f64) + num;
-                                return Some(Float(num));
+                                return Float(num);
                             }
                             Some('-') => {
                                 if ndigits != 4 {
                                     debug!("Invalid Datetime");
-                                    return None;
+                                    return NoValue;
                                 }
                                 self.advance();
 
@@ -434,31 +431,31 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
                                 let month = self.read_two_digits();
                                 if month.is_none() || !self.advance_if('-') {
                                     debug!("Invalid Datetime");
-                                    return None;
+                                    return NoValue;
                                 }
 
                                 let day = self.read_two_digits();
                                 if day.is_none() || !self.advance_if('T'){
                                     debug!("Invalid Datetime");
-                                    return None;
+                                    return NoValue;
                                 }
 
                                 let hour = self.read_two_digits();
                                 if hour.is_none() || !self.advance_if(':') {
                                     debug!("Invalid Datetime");
-                                    return None;
+                                    return NoValue;
                                 }
 
                                 let min = self.read_two_digits();
                                 if min.is_none() || !self.advance_if(':') {
                                     debug!("Invalid Datetime");
-                                    return None;
+                                    return NoValue;
                                 }
 
                                 let sec = self.read_two_digits();
                                 if sec.is_none() || !self.advance_if('Z') {
                                     debug!("Invalid Datetime");
-                                    return None;
+                                    return NoValue;
                                 }
 
                                 match (year, month, day, hour, min, sec) {
@@ -466,22 +463,22 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
                                      Some(h), Some(min), Some(s))
                                     if m > 0 && m <= 12 && d > 0 && d <= 31 &&
                                        h <= 24 && min <= 60 && s <= 60 => {
-                                        return Some(Datetime(y as u16,m,d,h,min,s))
+                                        return Datetime(y as u16,m,d,h,min,s)
                                     }
                                     _ => {
                                         debug!("Invalid Datetime range");
-                                        return None;
+                                        return NoValue;
                                     }
                                 }
                             }
                             _ => {
-                                return Some(Unsigned(n))
+                                return Unsigned(n)
                             }
                         }
                     }
                     (None, _) => {
                         assert!(false);
-                        return None
+                        return NoValue
                     }
                 }
             }
@@ -490,9 +487,9 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
                 if self.advance_if('r') &&
                    self.advance_if('u') &&
                    self.advance_if('e') {
-                    return Some(True)
+                    return True
                 } else {
-                    return None
+                    return NoValue
                 }
             }
             'f' => {
@@ -501,9 +498,9 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
                    self.advance_if('l') &&
                    self.advance_if('s') && 
                    self.advance_if('e') {
-                    return Some(True)
+                    return True
                 } else {
-                    return None
+                    return NoValue
                 }
             }
             '[' => {
@@ -511,11 +508,11 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
                 let mut arr = ~[];
                 loop {
                     match self.parse_value() {
-                        Some(val) => {
-                            arr.push(val);
-                        }
-                        None => {
+                        NoValue => {
                             break;
+                        }
+                        val => {
+                            arr.push(val);
                         }
                     }
                     
@@ -524,18 +521,18 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
                 }
                 self.skip_whitespaces_and_comments();
                 if self.advance_if(']') {
-                    return Some(Array(arr));
+                    return Array(arr);
                 } else {
-                    return None;
+                    return NoValue;
                 }
             }
             '"' => {
                 match self.parse_string() {
-                    Some(str) => { return Some(String(str)) }
-                    None => { return None }
+                    Some(str) => { return String(str) }
+                    None => { return NoValue }
                 }
             }
-            _ => { return None }
+            _ => { return NoValue }
         }
     }
 
@@ -711,8 +708,8 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
                     if !self.advance_if('=') { return false } // assign wanted
                     
                     match self.parse_value() {
-                        Some(val) => { visitor.pair(ident, val); }
-                        None => { return false; }
+                        NoValue => { return false; }
+                        val => { visitor.pair(ident, val); }
                     }
                 }
             } /* end match */
