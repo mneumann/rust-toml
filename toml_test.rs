@@ -37,7 +37,7 @@ fn to_json(v: &toml::Value) -> Json {
         &toml::False => { to_json_type(~"bool", String(~"false")) }
         &toml::Unsigned(n) => { to_json_type(~"integer", String(n.to_str())) }
         &toml::Integer(n) => { to_json_type(~"integer", String(n.to_str())) }
-        &toml::Float(n) => { to_json_type(~"float", String(n.to_str())) }
+        &toml::Float(n) => { to_json_type(~"float", String(std::f64::to_str(n))) }
         &toml::String(ref str) => { to_json_type(~"string", String(str.clone())) }
         &toml::Datetime(y,m,d,h,mi,s) => {
             let s = format!("{:04u}-{:02u}-{:02u}T{:02u}:{:02u}:{:02u}Z", y,m,d,h,mi,s);
