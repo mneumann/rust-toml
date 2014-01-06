@@ -7,9 +7,11 @@
 use std::io::Buffer;
 use std::hashmap::HashMap;
 use std::char;
-use std::option::Option;
 
 use std::io::mem::MemReader;
+use std::io::File;
+use std::io::buffered::BufferedReader;
+use std::path::Path;
 
 #[deriving(ToStr,Clone)]
 pub enum Value {
@@ -47,7 +49,6 @@ impl Value {
             _ => { None }
         }
     }
-
 
     pub fn get_float(&self) -> Option<f64> {
         match self {
@@ -280,21 +281,6 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
     pub fn new(rd: &'a mut BUF) -> Parser<'a, BUF> {
         let ch = rd.read_char();
         Parser { rd: rd, current_char: ch }
-    }
-
-    pub fn parse_from_buffer(rd: &mut BUF) -> Value {
-        let mut builder = ValueBuilder::new();
-        let mut parser = Parser::new(rd);
-        if parser.parse(&mut builder) {
-            return Table(builder.get_root().clone());
-        } else {
-            return NoValue;
-        }
-    }
-
-    pub fn parse_from_bytes(bytes: ~[u8]) -> Value {
-        let mut rd = MemReader::new(bytes);
-        return Parser::parse_from_buffer(&mut rd);
     }
 
     fn advance(&mut self) {
@@ -717,4 +703,28 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
 
         assert!(false);
     }
+}
+
+
+pub fn parse_from_file(name: &str) -> Value {
+    let path = Path::new(name);
+    let mut file = File::open(&path);
+
+    let mut rd = BufferedReader::new(file);
+    return parse_from_buffer(&mut rd);
+}
+
+pub fn parse_from_buffer<BUF: Buffer>(rd: &mut BUF) -> Value {
+    let mut builder = ValueBuilder::new();
+    let mut parser = Parser::new(rd);
+    if parser.parse(&mut builder) {
+        return Table(builder.get_root().clone());
+    } else {
+        return NoValue;
+    }
+}
+
+pub fn parse_from_bytes(bytes: ~[u8]) -> Value {
+    let mut rd = MemReader::new(bytes);
+    return parse_from_buffer(&mut rd);
 }
