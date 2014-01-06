@@ -484,7 +484,7 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
                    self.advance_if('l') &&
                    self.advance_if('s') && 
                    self.advance_if('e') {
-                    return True
+                    return False
                 } else {
                     return NoValue
                 }
