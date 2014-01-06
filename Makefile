@@ -1,3 +1,3 @@
 build:
-	rustc example.rs
-	rustc toml_test.rs
+	rustpkg build toml
+	rustpkg build examples/example.rs

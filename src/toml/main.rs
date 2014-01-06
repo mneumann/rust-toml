@@ -7,7 +7,7 @@ extern mod extra;
 use extra::json::{Json,String,List,Object};
 use extra::treemap::TreeMap;
 
-mod toml;
+pub mod toml;
 
 fn to_json_type(typ: ~str, val: Json) -> Json {
     let mut tree = ~TreeMap::new();

@@ -1,6 +1,7 @@
 /// A TOML [1] configuration file parser
 ///
 /// Copyright (c) 2014 by Michael Neumann
+/// Copyright (c) 2014 by Flavio Percoco
 ///
 /// [1]: https://github.com/mojombo/toml
 
@@ -207,7 +208,7 @@ impl ValueBuilder {
                 }
                 Some(&TableArray(ref mut table_array)) => {
                     assert!(table_array.len() > 0);
-                    let mut last_table = &mut table_array[table_array.len()-1];
+                    let last_table = &mut table_array[table_array.len()-1];
                     match last_table {
                         &Table(ref mut hmap) => {
                             return ValueBuilder::ins(path.slice_from(1), hmap, val);
@@ -692,7 +693,7 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
                     self.skip_whitespaces();
 
                     if !self.advance_if('=') { return false } // assign wanted
-                    
+
                     match self.parse_value() {
                         NoValue => { return false; }
                         val => { visitor.pair(ident, val); }
@@ -708,7 +709,7 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
 
 pub fn parse_from_file(name: &str) -> Value {
     let path = Path::new(name);
-    let mut file = File::open(&path);
+    let file = File::open(&path);
 
     let mut rd = BufferedReader::new(file);
     return parse_from_buffer(&mut rd);
