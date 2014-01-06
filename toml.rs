@@ -56,6 +56,28 @@ impl Value {
         }
     }
 
+    pub fn get_vec<'a>(&'a self) -> Option<&'a ~[Value]> {
+        match self {
+            &Array(ref vec) => { Some(vec) }
+            _ => { None } 
+        }
+    }
+
+    pub fn get_table<'a>(&'a self) -> Option<&'a HashMap<~str, Value>> {
+        match self {
+            &Table(ref table) => { Some(table) }
+            _ => { None } 
+        }
+    }
+
+
+    pub fn get_table_array<'a>(&'a self) -> Option<&'a ~[Value]> {
+        match self {
+            &TableArray(ref vec) => { Some(vec) }
+            _ => { None } 
+        }
+    }
+
     pub fn lookup_key<'a>(&'a self, key: &str) -> Option<&'a Value> {
         match self {
             &Table(ref map) => {
