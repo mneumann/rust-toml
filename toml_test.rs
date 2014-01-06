@@ -4,7 +4,7 @@
 
 extern mod extra;
 
-use extra::json::{Json,Number,String,Boolean,List,Object,Null};
+use extra::json::{Json,String,List,Object};
 use extra::treemap::TreeMap;
 
 mod toml;
