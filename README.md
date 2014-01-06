@@ -23,7 +23,7 @@ name = "prod1"
 [[products]]
 
 id = 2
-name = "prod2'
+name = "prod2"
 ```
 
 You can access it like in the example below:
