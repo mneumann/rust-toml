@@ -7,6 +7,7 @@
 use std::io::Buffer;
 use std::hashmap::HashMap;
 use std::char;
+use std::option::Option;
 
 use std::io::mem::MemReader;
 
@@ -22,6 +23,11 @@ pub enum Value {
     Datetime(u16,u8,u8,u8,u8,u8),
     TableArray(~[Value]),
     Table(HashMap<~str, Value>)
+}
+
+enum PathElement<'a> {
+    Key(&'a str),
+    Idx(uint)
 }
 
 impl Value {
@@ -70,7 +76,6 @@ impl Value {
         }
     }
 
-
     pub fn get_table_array<'a>(&'a self) -> Option<&'a ~[Value]> {
         match self {
             &TableArray(ref vec) => { Some(vec) }
@@ -112,6 +117,34 @@ impl Value {
             self.lookup_key(path[0]).and_then(|a| a.lookup_path(path.slice_from(1)))
         }
     }
+
+    pub fn lookup_path_elts<'a>(&'a self, path: &[PathElement]) -> Option<&'a Value> {
+        if path.is_empty() {
+            Some(self)
+        } else {
+            match path[0] {
+                Key(key) => self.lookup_key(key).and_then(|a| a.lookup_path_elts(path.slice_from(1))),
+                Idx(idx) => self.lookup_idx(idx).and_then(|a| a.lookup_path_elts(path.slice_from(1)))
+            }
+        }
+    }
+
+    pub fn lookup<'a, 'b>(&'a self, path: &'b str) -> Option<&'a Value> {
+        let paths: ~[&'b str] = path.split_str(".").collect();
+        let path_elts: ~[PathElement<'b>] = paths.map(|&t| {
+            let idx: Option<uint> = FromStr::from_str(t);
+            if idx.is_some() {
+                Idx(idx.unwrap())
+            } else {
+                Key(t)
+            }
+        });
+        return self.lookup_path_elts(path_elts);
+    }
+}
+
+pub fn lookup_tree<'a>(value: &'a Option<Value>, path: &str) -> Option<&'a Value> {
+    return value.as_ref().and_then(|a| a.lookup(path));
 }
 
 pub trait Visitor {
