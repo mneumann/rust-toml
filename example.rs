@@ -23,4 +23,7 @@ fn main() {
 
   let a = value.as_ref().and_then(|a| a.lookup_path(["abc", "def", "a"]));
   if a.is_some() { println!("Found a: {:?}", a) }
+
+  let product_0 = value.as_ref().and_then(|a| a.lookup_key("products").and_then(|a| a.lookup_idx(0)));
+  if product_0.is_some() { println!("Found product[0]: {:?}", product_0) }
 }

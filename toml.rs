@@ -20,7 +20,7 @@ pub enum Value {
     String(~str),
     Array(~[Value]),
     Datetime(u16,u8,u8,u8,u8,u8),
-    TableArray(~[HashMap<~str, Value>]),
+    TableArray(~[Value]),
     Table(HashMap<~str, Value>)
 }
 
@@ -60,6 +60,24 @@ impl Value {
         match self {
             &Table(ref map) => {
                 map.find_equiv(&key)
+            }
+            _ => { None }
+        }
+    }
+
+    pub fn lookup_vec<'a>(&'a self, idx: uint) -> Option<&'a Value> {
+        match self {
+            &Array(ref ary) => {
+                ary.get_opt(idx)
+            }
+            _ => { None }
+        }
+    }
+
+    pub fn lookup_idx<'a>(&'a self, idx: uint) -> Option<&'a Value> {
+        match self {
+            &TableArray(ref tableary) => {
+                tableary.get_opt(idx)
             }
             _ => { None }
         }
@@ -137,7 +155,15 @@ impl ValueBuilder {
                 Some(&TableArray(ref mut table_array)) => {
                     assert!(table_array.len() > 0);
                     let mut last_table = &mut table_array[table_array.len()-1];
-                    return ValueBuilder::ins(path.slice_from(1), last_table, val);
+                    match last_table {
+                        &Table(ref mut hmap) => {
+                            return ValueBuilder::ins(path.slice_from(1), hmap, val);
+                        }
+                        _ => {
+                            // TableArray's only contain Table's
+                            assert!(false);
+                        }
+                    }
                 }
                 Some(_) => {
                     debug!("Wrong type/duplicate key");
@@ -162,7 +188,7 @@ impl ValueBuilder {
 impl Visitor for ValueBuilder {
     fn section(&mut self, name: ~str, is_array: bool) -> bool {
         let ok = if is_array {
-            self.insert(name, TableArray(~[HashMap::new()]))
+            self.insert(name, TableArray(~[Table(HashMap::new())]))
         } else {
             self.insert(name, Table(HashMap::new()))
         };
