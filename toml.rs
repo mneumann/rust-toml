@@ -534,8 +534,8 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
     fn parse_section_identifier(&mut self) -> ~str {
         self.read_token(|ch| {
             match ch {
-                'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '.' | '_' => true,
-                _ => false
+                ' ' | '\t' | '\n' | '\r' | '[' | ']' => false,
+                _ => true
             }
         })
     }
@@ -615,13 +615,13 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
                     visitor.section(section_name, double_section);
                 }
 
-                // identifier
-                'a' .. 'z' | 'A' .. 'Z' | '_' => {
-
+                // identifier: anything else starts an idenfifier!
+                // NOTE that we do not allow '.' in identifiers!
+                _ => {
                     let ident = self.read_token(|ch| {
                         match ch {
-                            'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '_' => true,
-                            _ => false
+                            ' ' | '\t' | '=' | '.' => false,
+                            _ => true
                         }
                     });
 
@@ -633,10 +633,7 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
                         Some(val) => { visitor.pair(ident, val); }
                         None => { return false; }
                     }
-                    // do not advance!
                 }
-
-                _ => { return false }
             } /* end match */
         }
 
