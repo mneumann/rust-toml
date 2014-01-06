@@ -52,16 +52,15 @@ impl ValueBuilder {
         let head = path.head().to_owned();
 
         if path.len() == 1 {
-
             if ht.contains_key(&head) {
                 match val {
-                    TableArray(ref table_array) => {
+                    TableArray(table_array) => {
                         assert!(table_array.len() == 1);
                         // Special case [[key]], which merges with existing TableArray.
                         match ht.find_mut(&head) {
                             Some(&TableArray(ref mut table_array2)) => {
                                 assert!(table_array2.len() > 0);
-                                table_array2.push(table_array[0].clone()); // XXX: How can I avoid clone here?
+                                table_array2.push(table_array[0]);
                                 return true;
                             }
                             _ => { }
@@ -69,6 +68,7 @@ impl ValueBuilder {
                     }
                     _ => { }
                 }
+
                 debug!("Duplicate key");
                 return false;
             }
