@@ -18,7 +18,7 @@ fn to_json_type(typ: ~str, val: Json) -> Json {
 
 fn to_json(v: &toml::Value) -> Json {
     match v {
-        &toml::NoValue => { fail!() }
+        &toml::NoValue => { fail!("Invalid toml document"); }
         &toml::Table(ref map) => {
             let mut tree = ~TreeMap::new();
             for (k, v) in map.iter() {

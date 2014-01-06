@@ -676,7 +676,9 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
                         if !self.advance_if(']') { return false }
                     }
 
-                    visitor.section(section_name, double_section);
+                    if !visitor.section(section_name, double_section) {
+                        return false
+                    }
                 }
 
                 // identifier: anything else starts an idenfifier!
@@ -695,7 +697,9 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
                     
                     match self.parse_value() {
                         NoValue => { return false; }
-                        val => { visitor.pair(ident, val); }
+                        val => { 
+                            if !visitor.pair(ident, val) { return false; }
+                        }
                     }
                 }
             } /* end match */
