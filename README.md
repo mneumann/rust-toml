@@ -46,6 +46,21 @@ fn main() {
 }
 ```
 
+## Conformity
+
+I am using [this test suite][test-suite] to check for conformity to the TOML spec.
+You can run it like this (see it's homepage for details on how to install it):
+
+```sh
+$HOME/go/local/bin/toml-test rust-toml/toml_test</code>
+```
+
+Right now 46 tests pass, while 17 fail. Most of the tests that fail are because
+my parser is more loose in what it accepts and what not. For exaple I allow
+whitespace and newlines at almost any location, whereas the spec does not.
+
+[test-suite]: https://github.com/BurntSushi/toml-test
+
 ## License
 
 rust-redis is under the MIT license, see LICENSE-MIT for details.
