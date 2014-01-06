@@ -71,4 +71,5 @@ whitespace and newlines at almost any location, whereas the spec does not.
 rust-toml is under the MIT license, see LICENSE-MIT for details.
 
 Copyright (c) 2014 by Michael Neumann.
+
 Copyright (c) 2014 by Flavio Percoco.
