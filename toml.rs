@@ -52,23 +52,54 @@ impl ValueBuilder {
         let head = path.head().to_owned();
 
         if path.len() == 1 {
-            let ok = ht.insert(head, val);
-            if !ok {
+
+            if ht.contains_key(&head) {
+                match val {
+                    TableArray(ref table_array) => {
+                        assert!(table_array.len() == 1);
+                        // Special case [[key]], which merges with existing TableArray.
+                        match ht.find_mut(&head) {
+                            Some(&TableArray(ref mut table_array2)) => {
+                                assert!(table_array2.len() > 0);
+                                table_array2.push(table_array[0].clone()); // XXX: How can I avoid clone here?
+                                return true;
+                            }
+                            _ => { }
+                        }
+                    }
+                    _ => { }
+                }
                 debug!("Duplicate key");
+                return false;
             }
-            return ok;
+            else {
+                let ok = ht.insert(head, val);
+                assert!(ok);
+                return true;
+            }
         }
         else {
-            let m = ht.find_or_insert(head, Table(HashMap::new())); // Optimize
-            match *m {
-                Table(ref mut map) => {
-                    return ValueBuilder::ins(path.slice_from(1), map, val);
+            match ht.find_mut(&head) {
+                Some(&Table(ref mut table)) => {
+                    return ValueBuilder::ins(path.slice_from(1), table, val);
                 }
-                _ => {
+                Some(&TableArray(ref mut table_array)) => {
+                    assert!(table_array.len() > 0);
+                    let mut last_table = &mut table_array[table_array.len()-1];
+                    return ValueBuilder::ins(path.slice_from(1), last_table, val);
+                }
+                Some(_) => {
                     debug!("Wrong type/duplicate key");
                     return false;
                 }
+                None => {
+                    // fallthrough
+                }
             }
+            let mut table = HashMap::new();
+            let ok = ValueBuilder::ins(path.slice_from(1), &mut table, val);
+            ht.insert(head, Table(table));
+            return ok;
         }
     }
 
@@ -79,13 +110,16 @@ impl ValueBuilder {
 
 impl Visitor for ValueBuilder {
     fn section(&mut self, name: ~str, is_array: bool) -> bool {
-        let ok = self.insert(name, Table(HashMap::new()));
+        let ok = if is_array {
+            self.insert(name, TableArray(~[HashMap::new()]))
+        } else {
+            self.insert(name, Table(HashMap::new()))
+        };
         if !ok {
             debug!("Duplicate key: {}", name);
         }
 
         self.current_section = name;
-        self.section_is_array = is_array; // XXX: not implemented yet
 
         return ok;
     }
