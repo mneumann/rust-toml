@@ -52,7 +52,7 @@ I am using [this test suite][test-suite] to check for conformity to the TOML spe
 You can run it like this (see it's homepage for details on how to install it):
 
 ```sh
-$HOME/go/local/bin/toml-test rust-toml/toml_test</code>
+$HOME/go/local/bin/toml-test rust-toml/toml_test
 ```
 
 Right now 46 tests pass, while 17 fail. Most of the tests that fail are because
