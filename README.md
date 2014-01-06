@@ -15,12 +15,12 @@ Given the following TOML configuration file:
 ```
 # products.toml
 
-[[products]]
+[products]
 
 id = 1
 name = "prod1"
 
-[[products]]
+[products]
 
 id = 2
 name = "prod2'
@@ -45,6 +45,11 @@ fn main() {
     }
 }
 ```
+If you compiled it in your local copy, you could also do:
+
+```
+$ cat products.toml | build/x86_64-unknown-linux-gnu/toml/toml
+```
 
 ## Conformity
 
@@ -52,7 +57,7 @@ I am using [this test suite][test-suite] to check for conformity to the TOML spe
 You can run it like this (see it's homepage for details on how to install it):
 
 ```sh
-$HOME/go/local/bin/toml-test rust-toml/toml_test
+$HOME/go/local/bin/toml-test build/x86_64-unknown-linux-gnu/toml/toml
 ```
 
 Right now 46 tests pass, while 17 fail. Most of the tests that fail are because
@@ -63,6 +68,7 @@ whitespace and newlines at almost any location, whereas the spec does not.
 
 ## License
 
-rust-redis is under the MIT license, see LICENSE-MIT for details.
+rust-toml is under the MIT license, see LICENSE-MIT for details.
 
 Copyright (c) 2014 by Michael Neumann.
+Copyright (c) 2014 by Flavio Percoco.
