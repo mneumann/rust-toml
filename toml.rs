@@ -7,6 +7,7 @@
 use std::io::Buffer;
 use std::hashmap::HashMap;
 use std::char;
+
 use std::io::mem::MemReader;
 
 #[deriving(ToStr,Clone)]
@@ -21,6 +22,56 @@ pub enum Value {
     Datetime(u16,u8,u8,u8,u8,u8),
     TableArray(~[HashMap<~str, Value>]),
     Table(HashMap<~str, Value>)
+}
+
+impl Value {
+    pub fn get_bool(&self) -> Option<bool> {
+        match self {
+            &True => { Some(true) }
+            &False => { Some(false) }
+            _ => { None }
+        }
+    }
+
+    pub fn get_integer(&self) -> Option<i64> {
+        match self {
+            &Unsigned(u) => { Some(u as i64) } // XXX
+            &Integer(i) => { Some(i) }
+            _ => { None }
+        }
+    }
+
+
+    pub fn get_float(&self) -> Option<f64> {
+        match self {
+            &Float(num) => { Some(num) }
+            _ => { None } 
+        }
+    }
+
+    pub fn get_str<'a>(&'a self) -> Option<&'a ~str> {
+        match self {
+            &String(ref str) => { Some(str) }
+            _ => { None } 
+        }
+    }
+
+    pub fn lookup_key<'a>(&'a self, key: &str) -> Option<&'a Value> {
+        match self {
+            &Table(ref map) => {
+                map.find_equiv(&key)
+            }
+            _ => { None }
+        }
+    }
+
+    pub fn lookup_path<'a>(&'a self, path: &[&str]) -> Option<&'a Value> {
+        if path.is_empty() {
+            Some(self)
+        } else {
+            self.lookup_key(path[0]).and_then(|a| a.lookup_path(path.slice_from(1)))
+        }
+    }
 }
 
 pub trait Visitor {
