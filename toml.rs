@@ -42,7 +42,7 @@ impl Value {
         }
     }
 
-    pub fn get_integer(&self) -> Option<i64> {
+    pub fn get_int(&self) -> Option<i64> {
         match self {
             &Unsigned(u) => { Some(u as i64) } // XXX
             &Integer(i) => { Some(i) }
