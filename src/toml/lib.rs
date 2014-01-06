@@ -15,17 +15,6 @@ extern mod extra;
 pub use toml::{parse_from_file,
                parse_from_buffer,
                parse_from_bytes,
-               Value,
-               NoValue,
-               True,
-               False,
-               Unsigned,
-               Integer,
-               Float,
-               String,
-               Array,
-               Datetime,
-               TableArray,
-               Table};
+               Value};
 
 pub mod toml;
