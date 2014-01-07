@@ -1,0 +1,6 @@
+[main]
+test=1
+
+[abc.def]
+a = 12
+
