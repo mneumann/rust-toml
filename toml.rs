@@ -579,7 +579,7 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
                             match (d1, d2, d3, d4) {
                                 (Some(d1), Some(d2), Some(d3), Some(d4)) => {
                                     // XXX: how to construct an UTF character
-                                    let ch = (((((d1 as u32 << 8) | d2 as u32) << 8) | d3 as u32) << 8) | d4 as u32;
+                                    let ch = (((((d1 as u32 << 4) | d2 as u32) << 4) | d3 as u32) << 4) | d4 as u32;
                                     match char::from_u32(ch) {
                                         Some(ch) => {
                                             str.push_char(ch);
