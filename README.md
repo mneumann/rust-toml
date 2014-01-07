@@ -45,6 +45,15 @@ fn main() {
     }
 }
 ```
+## Benchmark
+
+I did a pretty non-scientific benchmark against [go-toml] for a 
+very large document (3 million lines). Not that it would matter
+in any way, but it shows that [rust-toml] is about three times
+as fast.
+
+[go-toml]: https://github.com/pelletier/go-toml
+[rust-toml]: https://github.com/mneumann/rust-toml
 
 ## Conformity
 
