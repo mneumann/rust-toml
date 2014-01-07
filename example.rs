@@ -1,6 +1,10 @@
 mod toml;
 
 fn main() {
+  if std::os::args().len() < 2 {
+		  println(format!("Usage: {} testfile.toml", std::os::args()[0]));
+		  return;
+  }
   let value = toml::parse_from_file(std::os::args()[1]);
   println!("{:s}", value.to_str());
 
