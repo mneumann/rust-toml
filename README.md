@@ -64,7 +64,7 @@ You can run it like this (see it's homepage for details on how to install it):
 $HOME/go/local/bin/toml-test rust-toml/toml_test
 ```
 
-Right now 55 tests pass, while 8 fail. Most of the tests that fail are because
+Right now 56 tests pass, while 7 fail. Most of the tests that fail are because
 my parser is more loose in what it accepts and what not. For exaple I allow
 whitespace and newlines at almost any location, whereas the spec does not.
 

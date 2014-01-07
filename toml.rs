@@ -302,18 +302,23 @@ impl Visitor for ValueBuilder {
 
 pub struct Parser<'a, BUF> {
     rd: &'a mut BUF,
-    current_char: Option<char>
+    current_char: Option<char>,
+    line: uint
 }
 
 impl<'a, BUF: Buffer> Parser<'a, BUF> {
     pub fn new(rd: &'a mut BUF) -> Parser<'a, BUF> {
         let ch = rd.read_char();
-        Parser { rd: rd, current_char: ch }
+        let mut line = 1;
+        if ch == Some('\n') { line += 1 }
+        Parser { rd: rd, current_char: ch, line: line }
     }
 
     fn advance(&mut self) {
         self.current_char = self.rd.read_char();
     }
+
+    pub fn get_line(&self) -> uint { self.line }
 
     fn ch(&self) -> Option<char> {
         return self.current_char;
@@ -395,7 +400,7 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
     }
 
     fn parse_value(&mut self) -> Value {
-        self.skip_whitespaces();
+        self.skip_whitespaces_and_comments();
 
         if self.eos() { return NoValue }
         match self.ch().unwrap() {
@@ -635,8 +640,12 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
     fn skip_whitespaces(&mut self) {
         loop {
             match self.ch() {
-                Some(' ') | Some('\t') | Some('\r') | Some('\n') => {
+                Some(' ') | Some('\t') | Some('\r') => {
                     self.advance();
+                }
+                Some('\n') => {
+                    self.advance();
+                    self.line += 1;
                 }
                 _ => { break }
             }
@@ -646,8 +655,12 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
     fn skip_whitespaces_and_comments(&mut self) {
         loop {
             match self.ch() {
-                Some(' ') | Some('\t') | Some('\r') | Some('\n') => {
+                Some(' ') | Some('\t') | Some('\r') => {
                     self.advance();
+                }
+                Some('\n') => {
+                    self.advance();
+                    self.line += 1;
                 }
                 Some('#') => {
                     self.skip_comment();
@@ -668,23 +681,17 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
                 _ => { /* skip */ }
             }
         }
+        self.line += 1;
         self.advance();
     }
 
     pub fn parse<V: Visitor>(&mut self, visitor: &mut V) -> bool {
         loop {
+            self.skip_whitespaces_and_comments();
+
             if self.eos() { return true }
+
             match self.ch().unwrap() {
-                // ignore whitespace
-                '\r' | '\n' | ' ' | '\t' => {
-                    self.advance();
-                }
-
-                // comment
-                '#' => {
-                    self.skip_comment();
-                }
-
                 // section
                 '[' => {
                     self.advance();
@@ -739,7 +746,6 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
     }
 }
 
-
 pub fn parse_from_file(name: &str) -> Value {
     let path = Path::new(name);
     let mut file = File::open(&path);
@@ -754,6 +760,7 @@ pub fn parse_from_buffer<BUF: Buffer>(rd: &mut BUF) -> Value {
     if parser.parse(&mut builder) {
         return Table(builder.get_root().clone());
     } else {
+        debug!("Error in line: {}", parser.get_line());
         return NoValue;
     }
 }
