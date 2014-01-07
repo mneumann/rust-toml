@@ -716,7 +716,7 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
                 _ => {
                     let ident = self.read_token(|ch| {
                         match ch {
-                            ' ' | '\t' | '\r' | '\n' | '=' | '.' => false,
+                            ' ' | '\t' | '\r' | '\n' | '=' => false,
                             _ => true
                         }
                     });
