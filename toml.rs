@@ -152,66 +152,72 @@ pub trait Visitor {
 
 pub struct ValueBuilder {
     root: HashMap<~str, Value>,
-    current_section: ~str,
-    section_is_array: bool
+    current_path: ~[~str]
 }
 
 impl ValueBuilder {
     pub fn new() -> ValueBuilder {
-        ValueBuilder { root: HashMap::new(), current_section: ~"", section_is_array: false }
+        ValueBuilder { root: HashMap::new(), current_path: ~[] }
     }
 
-    fn insert(&mut self, path: &str, value: Value) -> bool {
-        let path: ~[&str] = path.split_str(".").collect();
+    fn recursive_create_tree(path: &[~str], ht: &mut HashMap<~str, Value>, is_array: bool) -> bool {
         assert!(path.len() > 0);
 
-        return ValueBuilder::ins(path, &mut self.root, value);
-    }
+        if path.head().is_empty() { return false } // don"t allow empty keys 
 
-    fn ins(path: &[&str], ht: &mut HashMap<~str, Value>, val: Value) -> bool {
-        assert!(path.len() > 0);
+        let head = path.head(); // TODO: optimize
 
-        let head = path.head().to_owned();
-        if head.is_empty() { return false } // don"t allow empty keys 
-
-        if path.len() == 1 {
-            if ht.contains_key(&head) {
-                match val {
-                    TableArray(table_array) => {
-                        assert!(table_array.len() == 1);
-                        // Special case [[key]], which merges with existing TableArray.
-                        match ht.find_mut(&head) {
-                            Some(&TableArray(ref mut table_array2)) => {
-                                assert!(table_array2.len() > 0);
-                                table_array2.push(table_array[0]);
-                                return true;
-                            }
-                            _ => { }
-                        }
+        if path.len() == 1 { // terminal recursion
+            match ht.find_mut(head) {
+                Some(&TableArray(ref mut table_array)) => {
+                    if is_array {
+                        table_array.push(Table(HashMap::new()));
+                        return true;
                     }
-                    _ => { }
+                    else {
+                        debug!("Duplicate key");
+                        return false;
+                    }
                 }
+                Some(&Table(_)) => {
+                    if is_array {
+                        debug!("Duplicate key");
+                        return false;
+                    }
+                    else {
+                        return true;
+                    }
+                }
+                None => {
+                    // fall-through, as we cannot modify 'ht' here
+                }
+                _ => {
+                    debug!("Duplicate key");
+                    return false;
+                }
+            }
 
-                debug!("Duplicate key");
-                return false;
+            let ok =
+            if is_array {
+                ht.insert(head.to_owned(), TableArray(~[Table(HashMap::new())]))
             }
             else {
-                let ok = ht.insert(head, val);
-                assert!(ok);
-                return true;
-            }
+                ht.insert(head.to_owned(), Table(HashMap::new()))
+            };
+            assert!(ok);
+            return ok;
         }
         else {
-            match ht.find_mut(&head) {
+            match ht.find_mut(head) {
                 Some(&Table(ref mut table)) => {
-                    return ValueBuilder::ins(path.slice_from(1), table, val);
+                    return ValueBuilder::recursive_create_tree(path.slice_from(1), table, is_array);
                 }
                 Some(&TableArray(ref mut table_array)) => {
                     assert!(table_array.len() > 0);
                     let mut last_table = &mut table_array[table_array.len()-1];
                     match last_table {
                         &Table(ref mut hmap) => {
-                            return ValueBuilder::ins(path.slice_from(1), hmap, val);
+                            return ValueBuilder::recursive_create_tree(path.slice_from(1), hmap, is_array);
                         }
                         _ => {
                             // TableArray's only contain Table's
@@ -224,13 +230,48 @@ impl ValueBuilder {
                     return false;
                 }
                 None => {
-                    // fallthrough
+                    // fallthrough, as we cannot modify 'ht' here
                 }
             }
             let mut table = HashMap::new();
-            let ok = ValueBuilder::ins(path.slice_from(1), &mut table, val);
-            ht.insert(head, Table(table));
+            let ok = ValueBuilder::recursive_create_tree(path.slice_from(1), &mut table, is_array);
+            if ok {
+                let ok2 = ht.insert(head.to_owned(), Table(table));
+                assert!(ok2);
+            }
             return ok;
+        }
+    }
+
+    fn insert_value(path: &[~str], key: &str, ht: &mut HashMap<~str, Value>, val: Value) -> bool {
+        if path.is_empty() {
+            return ht.insert(key.to_owned(), val);
+        }
+        else {
+            let head = path.head(); // TODO: optimize
+            match ht.find_mut(head) {
+                Some(&Table(ref mut table)) => {
+                    return ValueBuilder::insert_value(path.slice_from(1), key, table, val);
+                }
+                Some(&TableArray(ref mut table_array)) => {
+                    assert!(table_array.len() > 0);
+                    let mut last_table = &mut table_array[table_array.len()-1];
+                    match last_table {
+                        &Table(ref mut hmap) => {
+                            return ValueBuilder::insert_value(path.slice_from(1), key, hmap, val);
+                        }
+                        _ => {
+                            // TableArray's only contain Table's
+                            assert!(false);
+                            return false;
+                        }
+                    }
+                }
+                _ => {
+                    debug!("Wrong type/duplicate key");
+                    return false;
+                }
+            }
         }
     }
 
@@ -241,35 +282,21 @@ impl ValueBuilder {
 
 impl Visitor for ValueBuilder {
     fn section(&mut self, name: ~str, is_array: bool) -> bool {
-        let ok = if is_array {
-            self.insert(name, TableArray(~[Table(HashMap::new())]))
-        } else {
-            self.insert(name, Table(HashMap::new()))
-        };
+        self.current_path = name.split_str(".").map(|i| i.to_owned()).collect();
+
+        let ok = ValueBuilder::recursive_create_tree(self.current_path.as_slice(), &mut self.root, is_array);
         if !ok {
-            debug!("Duplicate key: {}", name);
+            debug!("Duplicate section: {}", name);
         }
-
-        self.current_section = name;
-
         return ok;
     }
 
     fn pair(&mut self, key: ~str, val: Value) -> bool {
-        if self.current_section.len() == 0 {
-            let ok = self.insert(key, val);
-            if !ok {
-                debug!("Duplicate key: {}", key);
-            }
-            return ok;
-        } else {
-            let path = self.current_section + "." + key;
-            let ok = self.insert(path, val);
-            if !ok {
-                debug!("Duplicate key: {}", path);
-            }
-            return ok;
+        let ok = ValueBuilder::insert_value(self.current_path.as_slice(), key, &mut self.root, val);
+        if !ok {
+            debug!("Duplicate key: {} in path {:?}", key, self.current_path);
         }
+        return ok;
     }
 }
 
