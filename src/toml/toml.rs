@@ -145,18 +145,18 @@ impl Value {
     }
 }
 
-pub trait Visitor {
+trait Visitor {
     fn section(&mut self, name: ~str, is_array: bool) -> bool;
     fn pair(&mut self, key: ~str, val: Value) -> bool;
 }
 
-pub struct ValueBuilder {
+struct ValueBuilder {
     root: HashMap<~str, Value>,
     current_path: ~[~str]
 }
 
 impl ValueBuilder {
-    pub fn new() -> ValueBuilder {
+    fn new() -> ValueBuilder {
         ValueBuilder { root: HashMap::new(), current_path: ~[] }
     }
 
@@ -275,7 +275,7 @@ impl ValueBuilder {
         }
     }
 
-    pub fn get_root<'a>(&'a self) -> &'a HashMap<~str, Value> {
+    fn get_root<'a>(&'a self) -> &'a HashMap<~str, Value> {
         return &self.root;
     }
 }
@@ -300,14 +300,14 @@ impl Visitor for ValueBuilder {
     }
 }
 
-pub struct Parser<'a, BUF> {
+struct Parser<'a, BUF> {
     rd: &'a mut BUF,
     current_char: Option<char>,
     line: uint
 }
 
 impl<'a, BUF: Buffer> Parser<'a, BUF> {
-    pub fn new(rd: &'a mut BUF) -> Parser<'a, BUF> {
+    fn new(rd: &'a mut BUF) -> Parser<'a, BUF> {
         let ch = rd.read_char();
         let mut line = 1;
         if ch == Some('\n') { line += 1 }
@@ -318,7 +318,7 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
         self.current_char = self.rd.read_char();
     }
 
-    pub fn get_line(&self) -> uint { self.line }
+    fn get_line(&self) -> uint { self.line }
 
     fn ch(&self) -> Option<char> {
         return self.current_char;
@@ -685,7 +685,7 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
         self.advance();
     }
 
-    pub fn parse<V: Visitor>(&mut self, visitor: &mut V) -> bool {
+    fn parse<V: Visitor>(&mut self, visitor: &mut V) -> bool {
         loop {
             self.skip_whitespaces_and_comments();
 

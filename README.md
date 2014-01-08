@@ -29,7 +29,7 @@ name = "prod2'
 You can access it like in the example below:
 
 ```rust
-extern mod toml;
+extern mod toml = "toml#0.1";
 
 fn main() {
     let root = toml::parse_from_file("products.toml");
@@ -61,7 +61,7 @@ I am using [this test suite][test-suite] to check for conformity to the TOML spe
 You can run it like this (see it's homepage for details on how to install it):
 
 ```sh
-$HOME/go/local/bin/toml-test rust-toml/toml_test
+$HOME/go/local/bin/toml-test rust-toml/bin/testsuite
 ```
 
 Right now 56 tests pass, while 7 fail. Most of the tests that fail are because

@@ -3,11 +3,11 @@
 // [1]: https://github.com/BurntSushi/toml-test
 
 extern mod extra;
+extern mod toml = "toml#0.1";
 
 use extra::json::{Json,String,List,Object};
 use extra::treemap::TreeMap;
-
-mod toml;
+use toml::toml::{Unsigned,Integer,Float}; // XXX
 
 fn to_json_type(typ: ~str, val: Json) -> Json {
     let mut tree = ~TreeMap::new();
@@ -35,9 +35,9 @@ fn to_json(v: &toml::Value) -> Json {
         }
         &toml::True => { to_json_type(~"bool", String(~"true")) }
         &toml::False => { to_json_type(~"bool", String(~"false")) }
-        &toml::Unsigned(n) => { to_json_type(~"integer", String(n.to_str())) }
-        &toml::Integer(n) => { to_json_type(~"integer", String(n.to_str())) }
-        &toml::Float(n) => { to_json_type(~"float", String(std::f64::to_str(n))) }
+        &Unsigned(n) => { to_json_type(~"integer", String(n.to_str())) }
+        &Integer(n) => { to_json_type(~"integer", String(n.to_str())) }
+        &Float(n) => { to_json_type(~"float", String(std::f64::to_str(n))) }
         &toml::String(ref str) => { to_json_type(~"string", String(str.clone())) }
         &toml::Datetime(y,m,d,h,mi,s) => {
             let s = format!("{:04u}-{:02u}-{:02u}T{:02u}:{:02u}:{:02u}Z", y,m,d,h,mi,s);

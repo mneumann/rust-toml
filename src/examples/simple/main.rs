@@ -1,4 +1,4 @@
-mod toml;
+extern mod toml = "toml#0.1";
 
 fn main() {
   let value = toml::parse_from_file(std::os::args()[1]);
