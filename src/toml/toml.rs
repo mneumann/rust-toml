@@ -116,7 +116,7 @@ impl Value {
         if path.is_empty() {
             Some(self)
         } else {
-            self.lookup_key(path[0]).and_then(|a| a.lookup_path(path.slice_from(1)))
+            self.lookup_key(path[0]).and_then(|a| a.lookup_path(path.tail()))
         }
     }
 
@@ -125,8 +125,8 @@ impl Value {
             Some(self)
         } else {
             match path[0] {
-                Key(key) => self.lookup_key(key).and_then(|a| a.lookup_path_elts(path.slice_from(1))),
-                Idx(idx) => self.lookup_idx(idx).and_then(|a| a.lookup_path_elts(path.slice_from(1)))
+                Key(key) => self.lookup_key(key).and_then(|a| a.lookup_path_elts(path.tail())),
+                Idx(idx) => self.lookup_idx(idx).and_then(|a| a.lookup_path_elts(path.tail()))
             }
         }
     }
@@ -187,7 +187,7 @@ impl ValueBuilder {
                     let mut last_table = &mut table_array[table_array.len()-1];
                     match last_table {
                         &Table(ref mut hmap) => {
-                            return ValueBuilder::recursive_create_tree(path.slice_from(1), hmap, is_array);
+                            return ValueBuilder::recursive_create_tree(path.tail(), hmap, is_array);
                         }
                         _ => {
                             // TableArray's only contain Table's
@@ -207,7 +207,7 @@ impl ValueBuilder {
                     }
                 }
                 else {
-                    return ValueBuilder::recursive_create_tree(path.slice_from(1), table, is_array);
+                    return ValueBuilder::recursive_create_tree(path.tail(), table, is_array);
                 }
             }
             Some(_) => {
@@ -226,7 +226,7 @@ impl ValueBuilder {
         }
         else {
             let mut table = HashMap::new();
-            let ok = ValueBuilder::recursive_create_tree(path.slice_from(1), &mut table, is_array);
+            let ok = ValueBuilder::recursive_create_tree(path.tail(), &mut table, is_array);
             if !ok { return false }
             Table(table)
         };
@@ -243,14 +243,14 @@ impl ValueBuilder {
             let head = path.head(); // TODO: optimize
             match ht.find_mut(head) {
                 Some(&Table(ref mut table)) => {
-                    return ValueBuilder::insert_value(path.slice_from(1), key, table, val);
+                    return ValueBuilder::insert_value(path.tail(), key, table, val);
                 }
                 Some(&TableArray(ref mut table_array)) => {
                     assert!(table_array.len() > 0);
                     let mut last_table = &mut table_array[table_array.len()-1];
                     match last_table {
                         &Table(ref mut hmap) => {
-                            return ValueBuilder::insert_value(path.slice_from(1), key, hmap, val);
+                            return ValueBuilder::insert_value(path.tail(), key, hmap, val);
                         }
                         _ => {
                             // TableArray's only contain Table's
