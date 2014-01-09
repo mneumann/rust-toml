@@ -72,6 +72,6 @@ whitespace and newlines at almost any location, whereas the spec does not.
 
 ## License
 
-rust-redis is under the MIT license, see LICENSE-MIT for details.
+rust-toml is under the MIT license, see LICENSE-MIT for details.
 
 Copyright (c) 2014 by Michael Neumann.
