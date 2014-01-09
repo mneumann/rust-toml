@@ -165,11 +165,15 @@ impl ValueBuilder {
 
         if path.head().is_empty() { return false } // don"t allow empty keys 
 
+        let term_rec: bool = (path.len() == 1);
+
         let head = path.head(); // TODO: optimize
 
-        if path.len() == 1 { // terminal recursion
-            match ht.find_mut(head) {
-                Some(&TableArray(ref mut table_array)) => {
+        match ht.find_mut(head) {
+            Some(&TableArray(ref mut table_array)) => {
+                assert!(table_array.len() > 0);
+
+                if term_rec { // terminal recursion
                     if is_array {
                         table_array.push(Table(HashMap::new()));
                         return true;
@@ -179,41 +183,7 @@ impl ValueBuilder {
                         return false;
                     }
                 }
-                Some(&Table(_)) => {
-                    if is_array {
-                        debug!("Duplicate key");
-                        return false;
-                    }
-                    else {
-                        return true;
-                    }
-                }
-                None => {
-                    // fall-through, as we cannot modify 'ht' here
-                }
-                _ => {
-                    debug!("Duplicate key");
-                    return false;
-                }
-            }
-
-            let ok =
-            if is_array {
-                ht.insert(head.to_owned(), TableArray(~[Table(HashMap::new())]))
-            }
-            else {
-                ht.insert(head.to_owned(), Table(HashMap::new()))
-            };
-            assert!(ok);
-            return ok;
-        }
-        else {
-            match ht.find_mut(head) {
-                Some(&Table(ref mut table)) => {
-                    return ValueBuilder::recursive_create_tree(path.slice_from(1), table, is_array);
-                }
-                Some(&TableArray(ref mut table_array)) => {
-                    assert!(table_array.len() > 0);
+                else {
                     let mut last_table = &mut table_array[table_array.len()-1];
                     match last_table {
                         &Table(ref mut hmap) => {
@@ -225,22 +195,44 @@ impl ValueBuilder {
                         }
                     }
                 }
-                Some(_) => {
-                    debug!("Wrong type/duplicate key");
-                    return false;
+            }
+            Some(&Table(ref mut table)) => {
+                if term_rec { // terminal recursion
+                    if is_array {
+                        debug!("Duplicate key");
+                        return false;
+                    }
+                    else {
+                        return true;
+                    }
                 }
-                None => {
-                    // fallthrough, as we cannot modify 'ht' here
+                else {
+                    return ValueBuilder::recursive_create_tree(path.slice_from(1), table, is_array);
                 }
             }
+            Some(_) => {
+                debug!("Wrong type/duplicate key");
+                return false;
+            }
+            None => {
+                // fall-through, as we cannot modify 'ht' here
+            }
+        }
+
+        let value =
+        if term_rec { // terminal recursion
+            if is_array { TableArray(~[Table(HashMap::new())]) }
+            else { Table(HashMap::new()) }
+        }
+        else {
             let mut table = HashMap::new();
             let ok = ValueBuilder::recursive_create_tree(path.slice_from(1), &mut table, is_array);
-            if ok {
-                let ok2 = ht.insert(head.to_owned(), Table(table));
-                assert!(ok2);
-            }
-            return ok;
-        }
+            if !ok { return false }
+            Table(table)
+        };
+        let ok = ht.insert(head.to_owned(), value);
+        assert!(ok);
+        return ok;
     }
 
     fn insert_value(path: &[~str], key: &str, ht: &mut HashMap<~str, Value>, val: Value) -> bool {
