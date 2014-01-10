@@ -16,16 +16,39 @@ use std::path::Path;
 #[deriving(ToStr,Clone)]
 pub enum Value {
     NoValue,
-    True,
-    False,
+    Boolean(bool),
     Unsigned(u64),
     Integer(i64),
     Float(f64),
     String(~str),
-    Array(~[Value]),
     Datetime(u16,u8,u8,u8,u8,u8),
+    Array(~[Value]),
     TableArray(~[Value]),
     Table(HashMap<~str, Value>)
+}
+
+//
+// This function determines if v1 and v2 have compatible ("equivalent") types
+// as TOML allows only arrays where all elements are of the same type.
+//
+fn have_equiv_types(v1: &Value, v2: &Value) -> bool {
+    match (v1, v2) {
+        (&Boolean(_), &Boolean(_)) => true,
+        (&Unsigned(_), &Unsigned(_)) => true,
+        (&Unsigned(_), &Integer(_)) => true,
+        (&Integer(_), &Unsigned(_)) => true,
+        (&Integer(_), &Integer(_)) => true,
+        (&Float(_), &Float(_)) => true,
+        (&String(_), &String(_)) => true,
+        (&Datetime(..), &Datetime(..)) => true,
+        (&Array(ref a1), &Array(ref a2)) => {
+            match (a1, a2) {
+                (&[ref a, ..], &[ref b, ..]) => have_equiv_types(a, b),
+                _ => true
+            }
+        }
+        _ => false
+    }
 }
 
 enum PathElement<'a> {
@@ -36,8 +59,7 @@ enum PathElement<'a> {
 impl Value {
     pub fn get_bool(&self) -> Option<bool> {
         match self {
-            &True => { Some(true) }
-            &False => { Some(false) }
+            &Boolean(b) => { Some(b) }
             _ => { None }
         }
     }
@@ -498,18 +520,19 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
                 if self.advance_if('r') &&
                    self.advance_if('u') &&
                    self.advance_if('e') {
-                    return True
+                    return Boolean(true)
                 } else {
                     return NoValue
                 }
-            }
+            
+        }
             'f' => {
                 self.advance();
                 if self.advance_if('a') &&
                    self.advance_if('l') &&
                    self.advance_if('s') && 
                    self.advance_if('e') {
-                    return False
+                    return Boolean(false)
                 } else {
                     return NoValue
                 }
@@ -523,6 +546,12 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
                             break;
                         }
                         val => {
+                            if !arr.is_empty() {
+                                if !have_equiv_types(arr.head(), &val) {
+                                    debug!("Incompatible element types in array");
+                                    return NoValue;
+                                }
+                            }
                             arr.push(val);
                         }
                     }

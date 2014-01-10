@@ -33,8 +33,8 @@ fn to_json(v: &toml::Value) -> Json {
             let list = arr.map(|i| to_json(i)); 
             to_json_type(~"array", List(list))
         }
-        &toml::True => { to_json_type(~"bool", String(~"true")) }
-        &toml::False => { to_json_type(~"bool", String(~"false")) }
+        &toml::Boolean(true) => { to_json_type(~"bool", String(~"true")) }
+        &toml::Boolean(false) => { to_json_type(~"bool", String(~"false")) }
         &Unsigned(n) => { to_json_type(~"integer", String(n.to_str())) }
         &Integer(n) => { to_json_type(~"integer", String(n.to_str())) }
         &Float(n) => { to_json_type(~"float", String(std::f64::to_str(n))) }

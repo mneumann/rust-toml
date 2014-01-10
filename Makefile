@@ -1,9 +1,9 @@
-build:
+compile:
 	rustpkg build -O toml
 	rustpkg build -O testsuite
 	rustpkg build examples/simple
 
-install: build
+install: compile
 	rustpkg install toml
 	rustpkg install testsuite
 	rustpkg install examples/simple
