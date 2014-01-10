@@ -24,7 +24,7 @@ pub enum Value {
     Datetime(u16,u8,u8,u8,u8,u8),
     Array(~[Value]),
     TableArray(~[Value]),
-    Table(HashMap<~str, Value>)
+    Table(bool, HashMap<~str, Value>) // bool=true iff section already defiend
 }
 
 //
@@ -90,7 +90,7 @@ impl Value {
 
     pub fn get_table<'a>(&'a self) -> Option<&'a HashMap<~str, Value>> {
         match self {
-            &Table(ref table) => { Some(table) }
+            &Table(_, ref table) => { Some(table) }
             _ => { None } 
         }
     }
@@ -104,7 +104,7 @@ impl Value {
 
     pub fn lookup_key<'a>(&'a self, key: &str) -> Option<&'a Value> {
         match self {
-            &Table(ref map) => {
+            &Table(_, ref map) => {
                 map.find_equiv(&key)
             }
             _ => { None }
@@ -192,7 +192,7 @@ impl ValueBuilder {
 
                 if term_rec { // terminal recursion
                     if is_array {
-                        table_array.push(Table(HashMap::new()));
+                        table_array.push(Table(true, HashMap::new()));
                         return true;
                     }
                     else {
@@ -203,7 +203,7 @@ impl ValueBuilder {
                 else {
                     let mut last_table = &mut table_array[table_array.len()-1];
                     match last_table {
-                        &Table(ref mut hmap) => {
+                        &Table(_, ref mut hmap) => {
                             return ValueBuilder::recursive_create_tree(path.tail(), hmap, is_array);
                         }
                         _ => {
@@ -213,13 +213,17 @@ impl ValueBuilder {
                     }
                 }
             }
-            Some(&Table(ref mut table)) => {
+            Some(&Table(already_created, ref mut table)) => {
                 if term_rec { // terminal recursion
                     if is_array {
                         debug!("Duplicate key");
                         return false;
                     }
                     else {
+                        if already_created {
+                            debug!("Duplicate section");
+                            return false;
+                        }
                         return true;
                     }
                 }
@@ -238,14 +242,14 @@ impl ValueBuilder {
 
         let value =
         if term_rec { // terminal recursion
-            if is_array { TableArray(~[Table(HashMap::new())]) }
-            else { Table(HashMap::new()) }
+            if is_array { TableArray(~[Table(false, HashMap::new())]) }
+            else { Table(true, HashMap::new()) }
         }
         else {
             let mut table = HashMap::new();
             let ok = ValueBuilder::recursive_create_tree(path.tail(), &mut table, is_array);
             if !ok { return false }
-            Table(table)
+            Table(false, table)
         };
         let ok = ht.insert(head.to_owned(), value);
         assert!(ok);
@@ -259,14 +263,14 @@ impl ValueBuilder {
         else {
             let head = path.head(); // TODO: optimize
             match ht.find_mut(head) {
-                Some(&Table(ref mut table)) => {
+                Some(&Table(_, ref mut table)) => {
                     return ValueBuilder::insert_value(path.tail(), key, table, val);
                 }
                 Some(&TableArray(ref mut table_array)) => {
                     assert!(table_array.len() > 0);
                     let mut last_table = &mut table_array[table_array.len()-1];
                     match last_table {
-                        &Table(ref mut hmap) => {
+                        &Table(_, ref mut hmap) => {
                             return ValueBuilder::insert_value(path.tail(), key, hmap, val);
                         }
                         _ => {
@@ -779,7 +783,7 @@ pub fn parse_from_buffer<BUF: Buffer>(rd: &mut BUF) -> Value {
     let mut builder = ValueBuilder::new();
     let mut parser = Parser::new(rd);
     if parser.parse(&mut builder) {
-        return Table(builder.get_root().clone());
+        return Table(false, builder.get_root().clone());
     } else {
         debug!("Error in line: {}", parser.get_line());
         return NoValue;
