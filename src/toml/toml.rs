@@ -652,7 +652,7 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
     fn parse_section_identifier(&mut self) -> ~str {
         self.read_token(|ch| {
             match ch {
-                ' ' | '\t' | '\n' | '\r' | '[' | ']' => false,
+                '\t' | '\n' | '\r' | '[' | ']' => false,
                 _ => true
             }
         })
