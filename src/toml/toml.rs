@@ -18,7 +18,7 @@ pub enum Value {
     NoValue,
     Boolean(bool),
     Unsigned(u64),
-    Integer(i64),
+    Signed(u64),
     Float(f64),
     String(~str),
     Datetime(u16,u8,u8,u8,u8,u8),
@@ -35,9 +35,9 @@ fn have_equiv_types(v1: &Value, v2: &Value) -> bool {
     match (v1, v2) {
         (&Boolean(_), &Boolean(_)) => true,
         (&Unsigned(_), &Unsigned(_)) => true,
-        (&Unsigned(_), &Integer(_)) => true,
-        (&Integer(_), &Unsigned(_)) => true,
-        (&Integer(_), &Integer(_)) => true,
+        (&Unsigned(_), &Signed(_)) => true,
+        (&Signed(_), &Unsigned(_)) => true,
+        (&Signed(_), &Signed(_)) => true,
         (&Float(_), &Float(_)) => true,
         (&String(_), &String(_)) => true,
         (&Datetime(..), &Datetime(..)) => true,
@@ -67,7 +67,7 @@ impl Value {
     pub fn get_int(&self) -> Option<i64> {
         match self {
             &Unsigned(u) => { Some(u as i64) } // XXX
-            &Integer(i) => { Some(i) }
+            &Signed(u) => { Some(-(u as i64)) } // XXX
             _ => { None }
         }
     }
@@ -440,10 +440,7 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
                             return self.parse_float_rest(n, -1.0);
                         }
                         else {
-                            match n.to_i64() {
-                                Some(i) => return Integer(-i),
-                                None => return NoValue // XXX: Use Result
-                            }
+                            return Signed(n);
                         }
                     }
                     (None, _) => {

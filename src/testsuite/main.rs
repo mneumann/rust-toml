@@ -7,7 +7,7 @@ extern mod toml = "toml#0.1";
 
 use extra::json::{Json,String,List,Object};
 use extra::treemap::TreeMap;
-use toml::toml::{Unsigned,Integer,Float}; // XXX
+use toml::toml::{Unsigned,Signed,Float}; // XXX
 
 fn to_json_type(typ: ~str, val: Json) -> Json {
     let mut tree = ~TreeMap::new();
@@ -36,7 +36,7 @@ fn to_json(v: &toml::Value) -> Json {
         &toml::Boolean(true) => { to_json_type(~"bool", String(~"true")) }
         &toml::Boolean(false) => { to_json_type(~"bool", String(~"false")) }
         &Unsigned(n) => { to_json_type(~"integer", String(n.to_str())) }
-        &Integer(n) => { to_json_type(~"integer", String(n.to_str())) }
+        &Signed(n) => { to_json_type(~"integer", String("-" + n.to_str())) }
         &Float(n) => { to_json_type(~"float", String(std::f64::to_str(n))) }
         &toml::String(ref str) => { to_json_type(~"string", String(str.clone())) }
         &toml::Datetime(y,m,d,h,mi,s) => {
