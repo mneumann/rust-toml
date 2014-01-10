@@ -14,16 +14,21 @@ Given the following TOML configuration file:
 
 ```
 # products.toml
+[global]
 
-[[products]]
+# ...
 
-id = 1
-name = "prod1"
+[db]
 
-[[products]]
+  [[db.products]]
 
-id = 2
-name = "prod2"
+  id = 1
+  name = "prod1"
+
+  [[db.products]]
+
+  id = 2
+  name = "prod2"
 ```
 
 You can access it like in the example below:
@@ -33,8 +38,8 @@ extern mod toml = "toml#0.1";
 
 fn main() {
     let root = toml::parse_from_file("products.toml");
-    let id1  = root.lookup("products.0.id").get_int();
-    let name2 = root.lookup("products.1.name").get_str();
+    let id1  = root.lookup("db.products.0.id").get_int();
+    let name2 = root.lookup("db.products.1.name").get_str();
     match (id1, name2) {
         (Some(id1), Some(ref name2)) => {
             println!("id1: {}, name2: {}", id1, name2)
