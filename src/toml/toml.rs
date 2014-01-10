@@ -201,9 +201,9 @@ impl ValueBuilder {
                     }
                 }
                 else {
-                    let mut last_table = &mut table_array[table_array.len()-1];
-                    match last_table {
-                        &Table(_, ref mut hmap) => {
+                    //let last_table = &mut ;
+                    match table_array[table_array.len()-1] {
+                        Table(_, ref mut hmap) => {
                             return ValueBuilder::recursive_create_tree(path.tail(), hmap, is_array);
                         }
                         _ => {
@@ -268,9 +268,8 @@ impl ValueBuilder {
                 }
                 Some(&TableArray(ref mut table_array)) => {
                     assert!(table_array.len() > 0);
-                    let mut last_table = &mut table_array[table_array.len()-1];
-                    match last_table {
-                        &Table(_, ref mut hmap) => {
+                    match table_array[table_array.len()-1] {
+                        Table(_, ref mut hmap) => {
                             return ValueBuilder::insert_value(path.tail(), key, hmap, val);
                         }
                         _ => {
@@ -766,14 +765,12 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
                 }
             } /* end match */
         }
-
-        assert!(false);
     }
 }
 
 pub fn parse_from_file(name: &str) -> Value {
     let path = Path::new(name);
-    let mut file = File::open(&path);
+    let file = File::open(&path);
 
     let mut rd = BufferedReader::new(file);
     return parse_from_buffer(&mut rd);
