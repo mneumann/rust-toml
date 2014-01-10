@@ -63,15 +63,22 @@ as fast.
 ## Conformity
 
 I am using [this test suite][test-suite] to check for conformity to the TOML spec.
-You can run it like this (see it's homepage for details on how to install it):
+The test cases are also included in this git repo, you can run them with
+this command:
+
+```sh
+./bin/testsuite ./tests
+```
+
+Alternatively you can run it with the test runner from the original
+[test-suite][test-suite] using this command (see it's [homepage][test-suite]
+for details on how to install it):
 
 ```sh
 $HOME/go/local/bin/toml-test rust-toml/bin/testsuite
 ```
 
-Right now all 63 tests pass, none fails. Most of the tests that fail are because
-my parser is more loose in what it accepts and what not. For exaple I allow
-whitespace and newlines at almost any location, whereas the spec does not.
+Right now all 63 tests pass, none fails. 
 
 [test-suite]: https://github.com/BurntSushi/toml-test
 

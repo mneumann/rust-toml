@@ -4,6 +4,7 @@
 #[crate_type = "lib"];
 
 pub use toml::{parse_from_bytes,parse_from_buffer,parse_from_file,
+               parse_from_path,
                Value,NoValue,Boolean,Unsigned,Signed,Float,
                String,Array,Datetime,TableArray,Table};
 

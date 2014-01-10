@@ -768,12 +768,15 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
     }
 }
 
-pub fn parse_from_file(name: &str) -> Value {
-    let path = Path::new(name);
-    let file = File::open(&path);
 
+pub fn parse_from_path(path: &Path) -> Value {
+    let file = File::open(path);
     let mut rd = BufferedReader::new(file);
     return parse_from_buffer(&mut rd);
+}
+
+pub fn parse_from_file(name: &str) -> Value {
+    parse_from_path(&Path::new(name))
 }
 
 pub fn parse_from_buffer<BUF: Buffer>(rd: &mut BUF) -> Value {

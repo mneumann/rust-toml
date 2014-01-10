@@ -8,5 +8,8 @@ install: compile
 	rustpkg install testsuite
 	rustpkg install examples/simple
 
+test: install
+	./bin/testsuite ./tests
+
 clean:
 	rustpkg clean
