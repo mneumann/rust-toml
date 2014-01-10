@@ -413,6 +413,18 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
         }
     }
 
+    fn parse_float_rest(&mut self, n: u64, mul: f64) -> Value {
+        if self.ch().is_none() { return NoValue }
+        match self.ch().unwrap() {
+            '0' .. '9' => {
+                let num = self.read_float_mantissa();
+                let num = (n as f64) + num;
+                Float(num * mul)
+            }
+            _ => NoValue
+        }
+    }
+
     fn parse_value(&mut self) -> Value {
         self.skip_whitespaces_and_comments();
 
@@ -425,9 +437,7 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
                         if self.ch() == Some('.') {
                             // floating point
                             self.advance();
-                            let num = self.read_float_mantissa();
-                            let num = (n as f64) + num;
-                            return Float(-num);
+                            return self.parse_float_rest(n, -1.0);
                         }
                         else {
                             match n.to_i64() {
@@ -448,9 +458,7 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
                             Some('.') => {
                                 // floating point
                                 self.advance();
-                                let num = self.read_float_mantissa();
-                                let num = (n as f64) + num;
-                                return Float(num);
+                                return self.parse_float_rest(n, 1.0);
                             }
                             Some('-') => {
                                 if ndigits != 4 {
