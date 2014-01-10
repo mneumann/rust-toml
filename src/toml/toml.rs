@@ -41,12 +41,7 @@ fn have_equiv_types(v1: &Value, v2: &Value) -> bool {
         (&Float(_), &Float(_)) => true,
         (&String(_), &String(_)) => true,
         (&Datetime(..), &Datetime(..)) => true,
-        (&Array(ref a1), &Array(ref a2)) => {
-            match (a1, a2) {
-                (&[ref a, ..], &[ref b, ..]) => have_equiv_types(a, b),
-                _ => true
-            }
-        }
+        (&Array(_), &Array(_)) => true, // Arrays can be heterogenous in TOML
         _ => false
     }
 }
