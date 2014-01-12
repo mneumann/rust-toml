@@ -84,6 +84,8 @@ Right now all 63 tests pass, none fails.
 
 ## License
 
-rust-toml is under the MIT license, see LICENSE-MIT for details.
+rust-toml is under the MIT license, see [LICENSE-MIT][license] for details.
+
+[license]: LICENSE-MIT
 
 Copyright (c) 2014 by Michael Neumann.
