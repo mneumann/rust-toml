@@ -170,14 +170,14 @@ trait Visitor {
     fn pair(&mut self, key: ~str, val: Value) -> bool;
 }
 
-struct ValueBuilder {
-    root: ~HashMap<~str, Value>,
+struct ValueBuilder<'a> {
+    root: &'a mut ~HashMap<~str, Value>,
     current_path: ~[~str]
 }
 
-impl ValueBuilder {
-    fn new() -> ValueBuilder {
-        ValueBuilder { root: ~HashMap::new(), current_path: ~[] }
+impl<'a> ValueBuilder<'a> {
+    fn new(root: &'a mut ~HashMap<~str, Value>) -> ValueBuilder<'a> {
+        ValueBuilder { root: root, current_path: ~[] }
     }
 
     fn recursive_create_tree(path: &[~str], ht: &mut ~HashMap<~str, Value>, is_array: bool) -> bool {
@@ -289,17 +289,13 @@ impl ValueBuilder {
             }
         }
     }
-
-    fn get_root<'a>(&'a self) -> &'a ~HashMap<~str, Value> {
-        return &self.root;
-    }
 }
 
-impl Visitor for ValueBuilder {
+impl<'a> Visitor for ValueBuilder<'a> {
     fn section(&mut self, name: ~str, is_array: bool) -> bool {
         self.current_path = name.split_str(".").map(|i| i.to_owned()).collect();
 
-        let ok = ValueBuilder::recursive_create_tree(self.current_path.as_slice(), &mut self.root, is_array);
+        let ok = ValueBuilder::recursive_create_tree(self.current_path.as_slice(), self.root, is_array);
         if !ok {
             debug!("Duplicate section: {}", name);
         }
@@ -307,7 +303,7 @@ impl Visitor for ValueBuilder {
     }
 
     fn pair(&mut self, key: ~str, val: Value) -> bool {
-        let ok = ValueBuilder::insert_value(self.current_path.as_slice(), key, &mut self.root, val);
+        let ok = ValueBuilder::insert_value(self.current_path.as_slice(), key, self.root, val);
         if !ok {
             debug!("Duplicate key: {} in path {:?}", key, self.current_path);
         }
@@ -783,15 +779,17 @@ pub fn parse_from_file(name: &str) -> Value {
 }
 
 pub fn parse_from_buffer<BUF: Buffer>(rd: &mut BUF) -> Value {
-    let mut builder = ValueBuilder::new();
-    let mut parser = Parser::new(rd);
+    let mut ht: ~HashMap<~str, Value> = ~HashMap::new();
+    {
+        let mut builder = ValueBuilder::new(&mut ht);
+        let mut parser = Parser::new(rd);
 
-    if !parser.parse(&mut builder) {
-        debug!("Error in line: {}", parser.get_line());
-        return NoValue;
+        if !parser.parse(&mut builder) {
+            debug!("Error in line: {}", parser.get_line());
+            return NoValue;
+        }
     }
-    let root = builder.get_root();
-    return Table(false, root.clone()); // XXX: should be able to use *root here
+    return Table(false, ht);
 }
 
 pub fn parse_from_bytes(bytes: ~[u8]) -> Value {
