@@ -4,8 +4,6 @@
 ///
 /// [1]: https://github.com/mojombo/toml
 
-extern mod extra;
-
 use std::io::Buffer;
 use std::hashmap::HashMap;
 use std::char;
