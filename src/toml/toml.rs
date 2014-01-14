@@ -917,7 +917,7 @@ impl<'a> serialize::Decoder for Decoder<'a> {
                                    names: &[&str],
                                    f: |&mut Decoder<'a>, uint| -> T)
                                    -> T {
-      self.read_enum_variant(names, f)
+        self.read_enum_variant(names, f)
     }
 
 
@@ -926,29 +926,29 @@ impl<'a> serialize::Decoder for Decoder<'a> {
                                          idx: uint,
                                          f: |&mut Decoder<'a>| -> T)
                                          -> T {
-      self.read_enum_variant_arg(idx, f)
+        self.read_enum_variant_arg(idx, f)
     }
 
     fn read_tuple<T>(&mut self, f: |&mut Decoder<'a>, uint| -> T) -> T {
-      self.read_seq(f)
+        self.read_seq(f)
     }
 
     fn read_tuple_arg<T>(&mut self, idx: uint, f: |&mut Decoder<'a>| -> T) -> T {
-      self.read_seq_elt(idx, f)
+        self.read_seq_elt(idx, f)
     }
 
     fn read_tuple_struct<T>(&mut self,
                             _name: &str,
                             f: |&mut Decoder<'a>, uint| -> T)
                             -> T {
-      self.read_tuple(f)
+        self.read_tuple(f)
     }
 
     fn read_tuple_struct_arg<T>(&mut self,
                                 idx: uint,
                                 f: |&mut Decoder<'a>| -> T)
                                 -> T {
-      self.read_tuple_arg(idx, f)
+        self.read_tuple_arg(idx, f)
     }
 }
 
