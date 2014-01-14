@@ -27,7 +27,7 @@ pub enum Value {
     Datetime(u16,u8,u8,u8,u8,u8),
     Array(~[Value]),
     TableArray(~[Value]),
-    Table(bool, HashMap<~str, Value>) // bool=true iff section already defiend
+    Table(bool, ~HashMap<~str, Value>) // bool=true iff section already defiend
 }
 
 //
@@ -91,7 +91,7 @@ impl Value {
         }
     }
 
-    pub fn get_table<'a>(&'a self) -> Option<&'a HashMap<~str, Value>> {
+    pub fn get_table<'a>(&'a self) -> Option<&'a ~HashMap<~str, Value>> {
         match self {
             &Table(_, ref table) => { Some(table) }
             _ => { None } 
@@ -171,16 +171,16 @@ trait Visitor {
 }
 
 struct ValueBuilder {
-    root: HashMap<~str, Value>,
+    root: ~HashMap<~str, Value>,
     current_path: ~[~str]
 }
 
 impl ValueBuilder {
     fn new() -> ValueBuilder {
-        ValueBuilder { root: HashMap::new(), current_path: ~[] }
+        ValueBuilder { root: ~HashMap::new(), current_path: ~[] }
     }
 
-    fn recursive_create_tree(path: &[~str], ht: &mut HashMap<~str, Value>, is_array: bool) -> bool {
+    fn recursive_create_tree(path: &[~str], ht: &mut ~HashMap<~str, Value>, is_array: bool) -> bool {
         assert!(path.len() > 0);
 
         if path.head().is_empty() { return false } // don"t allow empty keys 
@@ -195,7 +195,7 @@ impl ValueBuilder {
 
                 if term_rec { // terminal recursion
                     if is_array {
-                        table_array.push(Table(true, HashMap::new()));
+                        table_array.push(Table(true, ~HashMap::new()));
                         return true;
                     }
                     else {
@@ -245,11 +245,11 @@ impl ValueBuilder {
 
         let value =
         if term_rec { // terminal recursion
-            if is_array { TableArray(~[Table(false, HashMap::new())]) }
-            else { Table(true, HashMap::new()) }
+            if is_array { TableArray(~[Table(false, ~HashMap::new())]) }
+            else { Table(true, ~HashMap::new()) }
         }
         else {
-            let mut table = HashMap::new();
+            let mut table = ~HashMap::new();
             let ok = ValueBuilder::recursive_create_tree(path.tail(), &mut table, is_array);
             if !ok { return false }
             Table(false, table)
@@ -259,7 +259,7 @@ impl ValueBuilder {
         return ok;
     }
 
-    fn insert_value(path: &[~str], key: &str, ht: &mut HashMap<~str, Value>, val: Value) -> bool {
+    fn insert_value(path: &[~str], key: &str, ht: &mut ~HashMap<~str, Value>, val: Value) -> bool {
         if path.is_empty() {
             return ht.insert(key.to_owned(), val);
         }
@@ -290,7 +290,7 @@ impl ValueBuilder {
         }
     }
 
-    fn get_root<'a>(&'a self) -> &'a HashMap<~str, Value> {
+    fn get_root<'a>(&'a self) -> &'a ~HashMap<~str, Value> {
         return &self.root;
     }
 }
@@ -785,12 +785,13 @@ pub fn parse_from_file(name: &str) -> Value {
 pub fn parse_from_buffer<BUF: Buffer>(rd: &mut BUF) -> Value {
     let mut builder = ValueBuilder::new();
     let mut parser = Parser::new(rd);
-    if parser.parse(&mut builder) {
-        return Table(false, builder.get_root().clone());
-    } else {
+
+    if !parser.parse(&mut builder) {
         debug!("Error in line: {}", parser.get_line());
         return NoValue;
     }
+    let root = builder.get_root();
+    return Table(false, root.clone()); // XXX: should be able to use *root here
 }
 
 pub fn parse_from_bytes(bytes: ~[u8]) -> Value {
