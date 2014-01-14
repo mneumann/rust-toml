@@ -801,6 +801,12 @@ pub struct Decoder<'a> {
     priv value: &'a Value
 }
 
+impl<'a> Decoder<'a> {
+    pub fn new(value: &'a Value) -> Decoder<'a> {
+        Decoder {value: value}
+    }
+}
+
 impl<'a> serialize::Decoder for Decoder<'a> {
     fn read_nil(&mut self) -> () { fail!() }
 
