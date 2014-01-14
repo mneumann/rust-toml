@@ -6,13 +6,27 @@ use extra::serialize::Decodable;
 #[deriving(ToStr,Decodable)]
 struct Config {
     host: ~str,
-    port: Option<uint>
+    port: Option<uint>,
+    ids: ~[uint],
+    products: ~[Product]
+}
+
+#[deriving(ToStr,Decodable)]
+struct Product {
+    id: uint,
+    name: ~str
 }
 
 fn main() {
     let toml = r###"
         host = "localhost"
-        port = 8080
+        ids = [1, 10, 20] 
+          [[products]]
+          id = 1
+          name = "Product 1" 
+          [[products]]
+          id = 2
+          name = "Product 2"
     "###;
 
     let value = toml::parse_from_bytes(toml.as_bytes().to_owned());
