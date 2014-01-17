@@ -15,3 +15,4 @@ test: install
 
 clean:
 	rustpkg clean
+	$(RM) -r bin/ build/ lib/

@@ -5,6 +5,8 @@
 
 A [TOML][toml-home] configuration file parser for [Rust][rust-home].
 
+[![Ohloh statistics](https://www.ohloh.net/p/rust-toml/widgets/project_thin_badge.gif)](https://www.ohloh.net/p/rust-toml)
+
 [toml-home]: https://github.com/mojombo/toml
 [rust-home]: http://www.rust-lang.org
 
