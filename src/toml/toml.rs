@@ -999,6 +999,5 @@ impl serialize::Decoder for Decoder {
 
 pub fn from_toml<T: Decodable<Decoder>>(value: Value) -> T {
     let mut decoder = Decoder::new(value);
-    fail!("rust ICE")
-    //Decodable::decode(&mut decoder)
+    Decodable::decode(&mut decoder)
 }
