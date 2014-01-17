@@ -912,6 +912,7 @@ impl<'a> serialize::Decoder for Decoder<'a> {
         }
     }
 
+    #[allow(unused_variable)]
     fn read_map<T>(&mut self, f: |&mut Decoder<'a>, uint| -> T) -> T {
         // f(self, 0)
         fail!("Maps not yet implemented") 
@@ -958,6 +959,8 @@ impl<'a> serialize::Decoder for Decoder<'a> {
     }
 }
 
+#[allow(unused_variable)]
+#[allow(unused_mut)]
 pub fn from_toml<'a, T: Decodable<Decoder<'a>>>(value: &'a Value) -> T {
     let mut decoder: Decoder<'a> = Decoder {value: value};
     fail!("rust ICE")
