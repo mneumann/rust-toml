@@ -913,8 +913,10 @@ impl<'a> serialize::Decoder for Decoder<'a> {
     }
 
     fn read_map<T>(&mut self, f: |&mut Decoder<'a>, uint| -> T) -> T {
-        // f(self, 0)
-        fail!("Maps not yet implemented") 
+        match *self.value {
+            Table(_, ref map) => f(self, map.len()),
+            _ => fail!()
+        }
     }
     fn read_map_elt_key<T>(&mut self, _idx: uint, f: |&mut Decoder<'a>| -> T) -> T { f(self) }
     fn read_map_elt_val<T>(&mut self, _idx: uint, f: |&mut Decoder<'a>| -> T) -> T { f(self) }
