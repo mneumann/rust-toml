@@ -30,8 +30,8 @@ fn main() {
     "###;
 
     let value = toml::parse_from_bytes(toml.as_bytes().to_owned());
-    let cfg: Config = Decodable::decode(&mut toml::Decoder::new(&value));
-
     println!("{:s}", value.to_str());
+
+    let cfg: Config = Decodable::decode(&mut toml::Decoder::new(value));
     println!("{:s}", cfg.to_str());
 }

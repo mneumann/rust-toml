@@ -15,6 +15,9 @@ use std::path::Path;
 
 use extra::serialize;
 use extra::serialize::Decodable;
+use std::util::replace;
+use std::vec::MoveIterator;
+use std::hashmap::HashMapMoveIterator;
 
 #[deriving(ToStr,Clone)]
 pub enum Value {
@@ -797,21 +800,30 @@ pub fn parse_from_bytes(bytes: ~[u8]) -> Value {
     return parse_from_buffer(&mut rd);
 }
 
-pub struct Decoder<'a> {
-    priv value: &'a Value
+pub struct Decoder {
+    priv value: Value,
+    // XXX: make arr/map/xxx make an enum
+    priv arr: Option<MoveIterator<Value>>,
+    priv tab: Option<~HashMap<~str, Value>>,
+    priv map: Option<HashMapMoveIterator<~str, Value>>
 }
 
-impl<'a> Decoder<'a> {
-    pub fn new(value: &'a Value) -> Decoder<'a> {
-        Decoder {value: value}
+impl Decoder {
+    pub fn new(value: Value) -> Decoder {
+        Decoder {
+            value: value,
+            arr: None,
+            tab: None,
+            map: None
+        }
     }
 }
 
-impl<'a> serialize::Decoder for Decoder<'a> {
+impl serialize::Decoder for Decoder {
     fn read_nil(&mut self) -> () { fail!() }
 
     fn read_u64(&mut self) -> u64 {
-        match *self.value {
+        match self.value {
             Unsigned(v) => v,
             _ => fail!()
         } 
@@ -823,7 +835,7 @@ impl<'a> serialize::Decoder for Decoder<'a> {
     fn read_u8(&mut self) -> u8 { self.read_u64().to_u8().unwrap() }
 
     fn read_i64(&mut self) -> i64 {
-        match *self.value {
+        match self.value {
             Unsigned(v) => v.to_i64().unwrap(),
             Signed(v) => v.to_i64().unwrap(),
             _ => fail!()
@@ -836,14 +848,14 @@ impl<'a> serialize::Decoder for Decoder<'a> {
     fn read_i8(&mut self) -> i8 { self.read_i64().to_i8().unwrap() }
 
     fn read_bool(&mut self) -> bool {
-        match *self.value {
+        match self.value {
             Boolean(b) => b,
             _ => fail!()
         }
     }
 
     fn read_f64(&mut self) -> f64 {
-         match *self.value {
+         match self.value {
             Float(f) => f,
             _ => fail!()
         }
@@ -860,70 +872,95 @@ impl<'a> serialize::Decoder for Decoder<'a> {
     }
 
     fn read_str(&mut self) -> ~str {
-        match *self.value {
-            String(ref s) => s.to_owned(),
+        match replace(&mut self.value, NoValue) {
+            String(s) => s,
             _ => fail!()
         }
     }
 
-    fn read_enum<T>(&mut self, _name: &str, _f: |&mut Decoder<'a>| -> T) -> T { fail!() }
-    fn read_enum_variant<T>(&mut self, _names: &[&str], _f: |&mut Decoder<'a>, uint| -> T) -> T { fail!() }
-    fn read_enum_variant_arg<T>(&mut self, _idx: uint, _f: |&mut Decoder<'a>| -> T) -> T { fail!() }
+    fn read_enum<T>(&mut self, _name: &str, _f: |&mut Decoder| -> T) -> T { fail!() }
+    fn read_enum_variant<T>(&mut self, _names: &[&str], _f: |&mut Decoder, uint| -> T) -> T { fail!() }
+    fn read_enum_variant_arg<T>(&mut self, _idx: uint, _f: |&mut Decoder| -> T) -> T { fail!() }
 
-    fn read_seq<T>(&mut self, f: |&mut Decoder<'a>, uint| -> T) -> T {
-        match *self.value {
-            Array(ref a) => f(self, a.len()),
-            TableArray(ref a) => f(self, a.len()),
-            _ => fail!()
-        }
-    }
-
-    fn read_seq_elt<T>(&mut self, idx: uint, f: |&mut Decoder<'a>| -> T) -> T {
-        match *self.value {
-            Array(ref a) => f(&mut Decoder{value: &a[idx]}),
-            TableArray(ref a) => f(&mut Decoder{value: &a[idx]}),
-            _ => fail!()
-        }
-    }
-
-    fn read_struct<T>(&mut self, _name: &str, _len: uint, f: |&mut Decoder<'a>| -> T) -> T {
-        match *self.value {
-            Table(_, _) => f(self),
-            _ => fail!()
-        }
-    }
-
-    fn read_struct_field<T>(&mut self, name: &str, _idx: uint, f: |&mut Decoder<'a>| -> T) -> T {
-        match *self.value {
-            Table(_, ref map) => {
-                match map.find_equiv(&name) {
-                    Some(val) => f(&mut Decoder{value: val}),
-                    None => f(&mut Decoder{value: &NoValue}), // XXX: NoValue equals "nil" here, not invalid value
-                }
+    fn read_seq<T>(&mut self, f: |&mut Decoder, uint| -> T) -> T {
+        match replace(&mut self.value, NoValue) {
+            Array(a) | TableArray(a) => {
+                let l = a.len();
+                let mut d = Decoder {value: NoValue, arr: Some(a.move_iter()), tab: None, map: None};
+                f(&mut d, l)
             }
             _ => fail!()
         }
     }
 
-    fn read_option<T>(&mut self, f: |&mut Decoder<'a>, bool| -> T) -> T {
-        match *self.value {
-            NoValue => f(self, false),
+    fn read_seq_elt<T>(&mut self, _idx: uint, f: |&mut Decoder| -> T) -> T {
+        // XXX: assert(idx)
+        // XXX: assert!(self.value == NoValue);
+        // XXX: self.value = ...
+        let mut d = Decoder::new(self.arr.get_mut_ref().next().unwrap());
+        f(&mut d)
+    }
+
+    fn read_struct<T>(&mut self, _name: &str, _len: uint, f: |&mut Decoder| -> T) -> T {
+        match replace(&mut self.value, NoValue) {
+            Table(_, hm) => {
+                let mut d = Decoder {value: NoValue, arr: None, tab: Some(hm), map: None};
+                f(&mut d)
+            }
+            _ => fail!()
+        }
+    }
+
+    fn read_struct_field<T>(&mut self, name: &str, _idx: uint, f: |&mut Decoder| -> T) -> T {
+        // XXX: assert!(self.value == NoValue);
+        let mut d = Decoder {value: NoValue, arr: None, tab: None, map: None}; // XXX: NoValue means "nil" here
+
+        match self.tab.get_mut_ref().pop(&name.to_owned()) { // XXX: pop_equiv(...) or find_equiv_mut...
+            None => f(&mut d),
+            Some(val) => {
+                d.value = val;
+                f(&mut d)
+            }
+        }
+    }
+
+    fn read_option<T>(&mut self, f: |&mut Decoder, bool| -> T) -> T {
+        match self.value {
+            NoValue => f(self, false), // XXX
             _ => f(self, true)
         }
     }
 
-    fn read_map<T>(&mut self, f: |&mut Decoder<'a>, uint| -> T) -> T {
-        match *self.value {
-            Table(_, ref map) => f(self, map.len()),
+    fn read_map<T>(&mut self, f: |&mut Decoder, uint| -> T) -> T {
+        match replace(&mut self.value, NoValue) {
+            Table(_, hm) => {
+                let len = hm.len();
+                let mut d = Decoder {value: NoValue, arr: None, tab: None, map: Some(hm.move_iter())};
+                f(&mut d, len)
+            }
             _ => fail!()
         }
     }
-    fn read_map_elt_key<T>(&mut self, _idx: uint, f: |&mut Decoder<'a>| -> T) -> T { f(self) }
-    fn read_map_elt_val<T>(&mut self, _idx: uint, f: |&mut Decoder<'a>| -> T) -> T { f(self) }
+
+    fn read_map_elt_key<T>(&mut self, _idx: uint, f: |&mut Decoder| -> T) -> T {
+        match self.map.get_mut_ref().next() {
+            None => fail!(),
+            Some((k, v)) => {
+                self.value = String(k);
+                let res = f(self);
+                self.value = v;
+                res
+            }
+        }
+    }
+
+    fn read_map_elt_val<T>(&mut self, _idx: uint, f: |&mut Decoder| -> T) -> T {
+        f(self)
+    }
 
     fn read_enum_struct_variant<T>(&mut self,
                                    names: &[&str],
-                                   f: |&mut Decoder<'a>, uint| -> T)
+                                   f: |&mut Decoder, uint| -> T)
                                    -> T {
         self.read_enum_variant(names, f)
     }
@@ -932,36 +969,36 @@ impl<'a> serialize::Decoder for Decoder<'a> {
     fn read_enum_struct_variant_field<T>(&mut self,
                                          _name: &str,
                                          idx: uint,
-                                         f: |&mut Decoder<'a>| -> T)
+                                         f: |&mut Decoder| -> T)
                                          -> T {
         self.read_enum_variant_arg(idx, f)
     }
 
-    fn read_tuple<T>(&mut self, f: |&mut Decoder<'a>, uint| -> T) -> T {
+    fn read_tuple<T>(&mut self, f: |&mut Decoder, uint| -> T) -> T {
         self.read_seq(f)
     }
 
-    fn read_tuple_arg<T>(&mut self, idx: uint, f: |&mut Decoder<'a>| -> T) -> T {
+    fn read_tuple_arg<T>(&mut self, idx: uint, f: |&mut Decoder| -> T) -> T {
         self.read_seq_elt(idx, f)
     }
 
     fn read_tuple_struct<T>(&mut self,
                             _name: &str,
-                            f: |&mut Decoder<'a>, uint| -> T)
+                            f: |&mut Decoder, uint| -> T)
                             -> T {
         self.read_tuple(f)
     }
 
     fn read_tuple_struct_arg<T>(&mut self,
                                 idx: uint,
-                                f: |&mut Decoder<'a>| -> T)
+                                f: |&mut Decoder| -> T)
                                 -> T {
         self.read_tuple_arg(idx, f)
     }
 }
 
-pub fn from_toml<'a, T: Decodable<Decoder<'a>>>(value: &'a Value) -> T {
-    let mut decoder: Decoder<'a> = Decoder {value: value};
+pub fn from_toml<T: Decodable<Decoder>>(value: Value) -> T {
+    let mut decoder = Decoder::new(value);
     fail!("rust ICE")
     //Decodable::decode(&mut decoder)
 }
