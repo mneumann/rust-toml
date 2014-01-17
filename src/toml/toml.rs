@@ -800,22 +800,24 @@ pub fn parse_from_bytes(bytes: ~[u8]) -> Value {
     return parse_from_buffer(&mut rd);
 }
 
+enum State {
+    No,
+    Arr(MoveIterator<Value>),
+    Tab(~HashMap<~str, Value>),
+    Map(HashMapMoveIterator<~str, Value>)
+}
+
 pub struct Decoder {
     priv value: Value,
-    // XXX: make arr/map/xxx make an enum
-    priv arr: Option<MoveIterator<Value>>,
-    priv tab: Option<~HashMap<~str, Value>>,
-    priv map: Option<HashMapMoveIterator<~str, Value>>
+    priv state: State
 }
 
 impl Decoder {
     pub fn new(value: Value) -> Decoder {
-        Decoder {
-            value: value,
-            arr: None,
-            tab: None,
-            map: None
-        }
+        Decoder {value: value, state: No}
+    }
+    pub fn new_state(state: State) -> Decoder {
+        Decoder {value: NoValue, state: state}
     }
 }
 
@@ -886,8 +888,7 @@ impl serialize::Decoder for Decoder {
         match replace(&mut self.value, NoValue) {
             Array(a) | TableArray(a) => {
                 let l = a.len();
-                let mut d = Decoder {value: NoValue, arr: Some(a.move_iter()), tab: None, map: None};
-                f(&mut d, l)
+                f(&mut Decoder::new_state(Arr(a.move_iter())), l)
             }
             _ => fail!()
         }
@@ -897,15 +898,16 @@ impl serialize::Decoder for Decoder {
         // XXX: assert(idx)
         // XXX: assert!(self.value == NoValue);
         // XXX: self.value = ...
-        let mut d = Decoder::new(self.arr.get_mut_ref().next().unwrap());
-        f(&mut d)
+        match self.state {
+            Arr(ref mut a) => f(&mut Decoder::new(a.next().unwrap())),
+            _ => fail!()
+        }
     }
 
     fn read_struct<T>(&mut self, _name: &str, _len: uint, f: |&mut Decoder| -> T) -> T {
         match replace(&mut self.value, NoValue) {
             Table(_, hm) => {
-                let mut d = Decoder {value: NoValue, arr: None, tab: Some(hm), map: None};
-                f(&mut d)
+                f(&mut Decoder::new_state(Tab(hm)))
             }
             _ => fail!()
         }
@@ -913,14 +915,14 @@ impl serialize::Decoder for Decoder {
 
     fn read_struct_field<T>(&mut self, name: &str, _idx: uint, f: |&mut Decoder| -> T) -> T {
         // XXX: assert!(self.value == NoValue);
-        let mut d = Decoder {value: NoValue, arr: None, tab: None, map: None}; // XXX: NoValue means "nil" here
-
-        match self.tab.get_mut_ref().pop(&name.to_owned()) { // XXX: pop_equiv(...) or find_equiv_mut...
-            None => f(&mut d),
-            Some(val) => {
-                d.value = val;
-                f(&mut d)
+        match self.state {
+            Tab(ref mut tab) => {
+                match tab.pop(&name.to_owned()) { // XXX: pop_equiv(...) or find_equiv_mut...
+                    None => f(&mut Decoder::new(NoValue)), // XXX: NoValue means "nil" here
+                    Some(val) => f(&mut Decoder::new(val))
+                }
             }
+            _ => fail!()
         }
     }
 
@@ -935,23 +937,26 @@ impl serialize::Decoder for Decoder {
         match replace(&mut self.value, NoValue) {
             Table(_, hm) => {
                 let len = hm.len();
-                let mut d = Decoder {value: NoValue, arr: None, tab: None, map: Some(hm.move_iter())};
-                f(&mut d, len)
+                f(&mut Decoder::new_state(Map(hm.move_iter())), len)
             }
             _ => fail!()
         }
     }
 
     fn read_map_elt_key<T>(&mut self, _idx: uint, f: |&mut Decoder| -> T) -> T {
-        match self.map.get_mut_ref().next() {
-            None => fail!(),
-            Some((k, v)) => {
-                self.value = String(k);
-                let res = f(self);
-                self.value = v;
-                res
+        let (k, v) = match self.state {
+            Map(ref mut map) => {
+                match map.next() {
+                    None => fail!(),
+                    Some((k, v)) => (k, v)
+                }
             }
-        }
+            _ => fail!()
+        };
+        self.value = String(k);
+        let res = f(self);
+        self.value = v;
+        res
     }
 
     fn read_map_elt_val<T>(&mut self, _idx: uint, f: |&mut Decoder| -> T) -> T {
