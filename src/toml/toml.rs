@@ -8,9 +8,9 @@ use std::io::Buffer;
 use std::hashmap::HashMap;
 use std::char;
 
-use std::io::mem::MemReader;
+use std::io::MemReader;
 use std::io::File;
-use std::io::buffered::BufferedReader;
+use std::io::BufferedReader;
 use std::path::Path;
 
 use extra::serialize;
