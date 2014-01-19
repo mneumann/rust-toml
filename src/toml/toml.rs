@@ -8,16 +8,16 @@ use std::io::Buffer;
 use std::hashmap::HashMap;
 use std::char;
 
-use std::io::mem::MemReader;
+use std::io::MemReader;
 use std::io::File;
-use std::io::buffered::BufferedReader;
+use std::io::BufferedReader;
 use std::path::Path;
 
 use extra::serialize;
 use extra::serialize::Decodable;
 use std::util::replace;
-use std::vec::MoveIterator;
-use std::hashmap::HashMapMoveIterator;
+use std::vec::MoveItems;
+use std::hashmap::MoveEntries;
 
 #[deriving(ToStr,Clone)]
 pub enum Value {
@@ -802,9 +802,9 @@ pub fn parse_from_bytes(bytes: ~[u8]) -> Value {
 
 enum State {
     No,
-    Arr(MoveIterator<Value>),
+    Arr(MoveItems<Value>),
     Tab(~HashMap<~str, Value>),
-    Map(HashMapMoveIterator<~str, Value>)
+    Map(MoveEntries<~str, Value>)
 }
 
 pub struct Decoder {
