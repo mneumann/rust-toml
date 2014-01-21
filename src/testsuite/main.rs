@@ -10,7 +10,7 @@ extern mod toml = "toml#0.1";
 
 use extra::json::{Json,String,List,Object};
 use extra::treemap::TreeMap;
-use toml::toml::{Unsigned,Signed,Float}; // XXX
+use toml::{Unsigned,Signed,Float};
 use std::os;
 use std::path::Path;
 use std::io::fs::walk_dir;
@@ -48,7 +48,7 @@ fn to_json(v: &toml::Value) -> Json {
             List(arr.map(|i| to_json(i)))
         }
         &toml::Array(ref arr) => {
-            let list = arr.map(|i| to_json(i)); 
+            let list = arr.map(|i| to_json(i));
             to_json_type(~"array", List(list))
         }
         &toml::Boolean(true) => { to_json_type(~"bool", String(~"true")) }
@@ -70,7 +70,7 @@ fn toml_test_runner() {
     println!("{:s}", json.to_pretty_str());
 }
 
-fn independent_test_runner(path: ~str) { 
+fn independent_test_runner(path: ~str) {
   let path = Path::new(path);
   let mut tests: int = 0;
   let mut failed: int = 0;
@@ -96,7 +96,7 @@ fn independent_test_runner(path: ~str) {
 
   for filename in walk_dir(&path.join("valid")) {
     if filename.is_file() && filename.extension_str() == Some("toml") {
-      let jsonfile = filename.with_extension("json"); 
+      let jsonfile = filename.with_extension("json");
       if !jsonfile.is_file() { fail!() }
 
       println!("TEST/VALID:   {}", filename.filename_display());
@@ -136,7 +136,7 @@ fn independent_test_runner(path: ~str) {
 fn main() {
     match os::args() {
       [_] => toml_test_runner(),
-      [_, path] => independent_test_runner(path), 
+      [_, path] => independent_test_runner(path),
       [arg0, ..] => fail!("USAGE: {:s} [path]", arg0),
       _ => fail!()
     }
