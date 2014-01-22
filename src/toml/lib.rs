@@ -127,7 +127,7 @@ impl Value {
     pub fn lookup_vec<'a>(&'a self, idx: uint) -> Option<&'a Value> {
         match self {
             &Array(ref ary) => {
-                ary.get_opt(idx)
+                ary.get(idx)
             }
             _ => { None }
         }
@@ -136,7 +136,7 @@ impl Value {
     pub fn lookup_idx<'a>(&'a self, idx: uint) -> Option<&'a Value> {
         match self {
             &TableArray(ref tableary) => {
-                tableary.get_opt(idx)
+                tableary.get(idx)
             }
             _ => { None }
         }
@@ -193,11 +193,11 @@ impl<'a> ValueBuilder<'a> {
     fn recursive_create_tree(path: &[~str], ht: &mut ~HashMap<~str, Value>, is_array: bool) -> bool {
         assert!(path.len() > 0);
 
-        if path.head().is_empty() { return false } // don't allow empty keys
+        if path.head().unwrap().is_empty() { return false } // don't allow empty keys
 
         let term_rec: bool = (path.len() == 1);
 
-        let head = path.head(); // TODO: optimize
+        let head = path.head().unwrap(); // TODO: optimize
 
         match ht.find_mut(head) {
             Some(&TableArray(ref mut table_array)) => {
@@ -274,7 +274,7 @@ impl<'a> ValueBuilder<'a> {
             return ht.insert(key.to_owned(), val);
         }
         else {
-            let head = path.head(); // TODO: optimize
+            let head = path.head().unwrap(); // TODO: optimize
             match ht.find_mut(head) {
                 Some(&Table(_, ref mut table)) => {
                     return ValueBuilder::insert_value(path.tail(), key, table, val);
@@ -559,7 +559,7 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
                         }
                         val => {
                             if !arr.is_empty() {
-                                if !have_equiv_types(arr.head(), &val) {
+                                if !have_equiv_types(arr.head().unwrap(), &val) {
                                     debug!("Incompatible element types in array");
                                     return NoValue;
                                 }
