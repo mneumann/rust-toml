@@ -193,7 +193,7 @@ impl<'a> ValueBuilder<'a> {
     fn recursive_create_tree(path: &[~str], ht: &mut ~HashMap<~str, Value>, is_array: bool) -> bool {
         assert!(path.len() > 0);
 
-        if path.head().is_empty() { return false } // don"t allow empty keys
+        if path.head().is_empty() { return false } // don't allow empty keys
 
         let term_rec: bool = (path.len() == 1);
 
