@@ -4,6 +4,9 @@ compile:
 	rustpkg build examples/simple
 	rustpkg build examples/decoder
 
+doc:
+	rustdoc src/toml/lib.rs
+
 install: compile
 	rustpkg install toml
 	rustpkg install testsuite
@@ -15,4 +18,4 @@ test: install
 
 clean:
 	rustpkg clean
-	$(RM) -r bin/ build/ lib/
+	$(RM) -r bin/ build/ doc/ lib/
