@@ -329,14 +329,14 @@ struct Parser<'a, BUF> {
 
 impl<'a, BUF: Buffer> Parser<'a, BUF> {
     fn new(rd: &'a mut BUF) -> Parser<'a, BUF> {
-        let ch = rd.read_char();
+        let ch = rd.read_char().ok();
         let mut line = 1;
         if ch == Some('\n') { line += 1 }
         Parser { rd: rd, current_char: ch, line: line }
     }
 
     fn advance(&mut self) {
-        self.current_char = self.rd.read_char();
+        self.current_char = self.rd.read_char().ok();
     }
 
     fn get_line(&self) -> uint { self.line }
