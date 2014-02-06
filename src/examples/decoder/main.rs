@@ -1,6 +1,8 @@
 extern mod extra;
 extern mod toml = "toml#0.1";
 
+use std::os;
+
 #[deriving(ToStr,Decodable)]
 struct Config {
     host: ~str,
@@ -27,7 +29,19 @@ fn main() {
           name = "Product 2"
     "###;
 
-    let value = toml::parse_from_bytes(toml.as_bytes().to_owned());
+    let value = match toml::parse_from_bytes(toml.as_bytes().to_owned()) {
+        Ok(v) => v,
+        Err(toml::ParseError) => {
+            println!("parse error");
+            os::set_exit_status(1);
+            return;
+        }
+        Err(toml::IOError(e)) => {
+            println!("I/O error: {}", e);
+            os::set_exit_status(1);
+            return;
+        }
+    };
     println!("{:s}", value.to_str());
 
     let cfg: Config = toml::from_toml(value);

@@ -65,7 +65,7 @@ fn to_json(v: &toml::Value) -> Json {
 }
 
 fn toml_test_runner() {
-    let toml = toml::parse_from_bytes(std::io::stdin().read_to_end());
+    let toml = toml::parse_from_bytes(std::io::stdin().read_to_end().unwrap()).unwrap();
     let json = to_json(&toml);
     println!("{:s}", json.to_pretty_str());
 }
@@ -76,13 +76,13 @@ fn independent_test_runner(path: ~str) {
   let mut failed: int = 0;
   let mut passed: int = 0;
 
-  for filename in walk_dir(&path.join("invalid")) {
+  for filename in walk_dir(&path.join("invalid")).unwrap() {
     if filename.is_file() && filename.extension_str() == Some("toml") {
       println!("TEST/INVALID: {}", filename.filename_display());
       tests += 1;
 
       match toml::parse_from_path(&filename) {
-          toml::NoValue => {
+          Err(_) => {
               passed += 1;
               println!("   [PASS]");
           }
@@ -94,14 +94,14 @@ fn independent_test_runner(path: ~str) {
     }
   }
 
-  for filename in walk_dir(&path.join("valid")) {
+  for filename in walk_dir(&path.join("valid")).unwrap() {
     if filename.is_file() && filename.extension_str() == Some("toml") {
       let jsonfile = filename.with_extension("json");
       if !jsonfile.is_file() { fail!() }
 
       println!("TEST/VALID:   {}", filename.filename_display());
 
-      let jsonbytes = File::open(&Path::new(jsonfile)).read_to_end();
+      let jsonbytes = File::open(&Path::new(jsonfile)).read_to_end().unwrap();
       let jsonstr = std::str::from_utf8(jsonbytes).unwrap();
 
       let result = extra::json::from_str(jsonstr);
@@ -111,16 +111,20 @@ fn independent_test_runner(path: ~str) {
 
       let json = result.unwrap();
       let toml = toml::parse_from_path(&filename);
-      let toml_json = to_json(&toml);
+      let toml_json = toml.map(|t| to_json(&t));
 
-      if json == toml_json {
+      if Ok(&json) == toml_json.as_ref() {
           passed += 1;
           println!("   [PASS]");
       } else {
           println!("===============================================");
           println!("{:s}", json.to_pretty_str());
           println!("-----------------------------------------------");
-          println!("{:s}", toml_json.to_pretty_str());
+          match toml_json {
+              Ok(json) => println!("{:s}", json.to_pretty_str()),
+              Err(toml::ParseError) => println!("(parse error)"),
+              Err(toml::IOError(e)) => println!("({})", e)
+          }
           println!("===============================================");
           failed += 1;
           println!("   [FAIL]");

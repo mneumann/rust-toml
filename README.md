@@ -39,7 +39,7 @@ You can access it like in the example below:
 extern mod toml = "toml#0.1";
 
 fn main() {
-    let root = toml::parse_from_file("products.toml");
+    let root = toml::parse_from_file("products.toml").unwrap();
     let id1  = root.lookup("db.products.0.id").get_int();
     let name2 = root.lookup("db.products.1.name").get_str();
     match (id1, name2) {

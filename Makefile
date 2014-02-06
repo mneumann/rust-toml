@@ -1,18 +1,32 @@
-compile:
-	rustpkg build -O toml
-	rustpkg build -O testsuite
-	rustpkg build examples/simple
-	rustpkg build examples/decoder
+.PHONY: lib all examples test clean
 
-install: compile
-	rustpkg install toml
-	rustpkg install testsuite
-	rustpkg install examples/simple
-	rustpkg install examples/decoder
+LIBNAME := $(shell rustc --crate-file-name src/toml/lib.rs)
 
-test: install
+all: lib examples test
+
+lib: lib/$(LIBNAME)
+
+lib/$(LIBNAME): src/toml/lib.rs
+	@mkdir -p lib
+	rustc -O --out-dir lib $<
+
+test: bin/testsuite
 	./bin/testsuite ./tests
 
+bin/testsuite: src/testsuite/main.rs lib/$(LIBNAME)
+	@mkdir -p bin
+	rustc -O -o bin/testsuite -L lib $<
+
+examples: bin/simple bin/decoder
+
+bin/simple: src/examples/simple/main.rs lib/$(LIBNAME)
+	@mkdir -p bin
+	rustc -o bin/simple -L lib $<
+
+bin/decoder: src/examples/decoder/main.rs lib/$(LIBNAME)
+	@mkdir -p bin
+	rustc -o bin/decoder -L lib $<
+
 clean:
-	rustpkg clean
-	$(RM) -r bin/ build/ lib/
+	-$(RM) -r bin
+	-$(RM) -r lib
