@@ -65,7 +65,7 @@ fn to_json(v: &toml::Value) -> Json {
 }
 
 fn toml_test_runner() {
-    let toml = toml::parse_from_bytes(std::io::stdin().read_to_end().unwrap());
+    let toml = toml::parse_from_bytes(std::io::stdin().read_to_end().unwrap()).unwrap();
     let json = to_json(&toml);
     println!("{:s}", json.to_pretty_str());
 }
@@ -82,7 +82,7 @@ fn independent_test_runner(path: ~str) {
       tests += 1;
 
       match toml::parse_from_path(&filename) {
-          toml::NoValue => {
+          Err(_) => {
               passed += 1;
               println!("   [PASS]");
           }
@@ -111,16 +111,20 @@ fn independent_test_runner(path: ~str) {
 
       let json = result.unwrap();
       let toml = toml::parse_from_path(&filename);
-      let toml_json = to_json(&toml);
+      let toml_json = toml.map(|t| to_json(&t));
 
-      if json == toml_json {
+      if Ok(&json) == toml_json.as_ref() {
           passed += 1;
           println!("   [PASS]");
       } else {
           println!("===============================================");
           println!("{:s}", json.to_pretty_str());
           println!("-----------------------------------------------");
-          println!("{:s}", toml_json.to_pretty_str());
+          match toml_json {
+              Ok(json) => println!("{:s}", json.to_pretty_str()),
+              Err(toml::ParseError) => println!("(parse error)"),
+              Err(toml::IOError(e)) => println!("({})", e)
+          }
           println!("===============================================");
           failed += 1;
           println!("   [FAIL]");

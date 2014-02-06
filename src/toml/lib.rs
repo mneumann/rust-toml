@@ -15,6 +15,8 @@ use std::io::Buffer;
 use std::hashmap::HashMap;
 use std::char;
 
+use std::io;
+use std::io::{IoError,IoResult,EndOfFile};
 use std::io::MemReader;
 use std::io::File;
 use std::io::BufferedReader;
@@ -38,6 +40,15 @@ pub enum Value {
     Array(~[Value]),
     TableArray(~[Value]),
     Table(bool, ~HashMap<~str, Value>) // bool=true iff section already defiend
+}
+
+/// Possible errors returned from the parse functions
+#[deriving(ToStr,Clone,Eq)]
+pub enum Error {
+    /// An parser error occurred during parsing
+    ParseError,
+    /// An I/O error occurred during parsing
+    IOError(io::IoError)
 }
 
 //
@@ -323,30 +334,42 @@ impl<'a> Visitor for ValueBuilder<'a> {
 
 struct Parser<'a, BUF> {
     rd: &'a mut BUF,
-    current_char: Option<char>,
+    current_char: IoResult<char>,
     line: uint
 }
 
 impl<'a, BUF: Buffer> Parser<'a, BUF> {
     fn new(rd: &'a mut BUF) -> Parser<'a, BUF> {
-        let ch = rd.read_char().ok();
+        let ch = rd.read_char();
         let mut line = 1;
-        if ch == Some('\n') { line += 1 }
+        if ch == Ok('\n') { line += 1 }
         Parser { rd: rd, current_char: ch, line: line }
     }
 
     fn advance(&mut self) {
-        self.current_char = self.rd.read_char().ok();
+        self.current_char = self.rd.read_char();
     }
 
     fn get_line(&self) -> uint { self.line }
 
     fn ch(&self) -> Option<char> {
-        return self.current_char;
+        match self.current_char {
+            Ok(c) => Some(c),
+            Err(_) => None
+        }
     }
 
+    /// Returns `true` if the input is exhausted (due to EOF or an error)
     fn eos(&self) -> bool {
-        return self.current_char.is_none();
+        return self.current_char.is_err();
+    }
+
+    /// Returns any error encountered by the parser. Returns `None` for EndOfFile.
+    fn to_err(&self) -> Option<IoError> {
+        match self.current_char {
+            Ok(_) | Err(IoError{kind: EndOfFile, ..}) => None,
+            Err(ref e) => Some(e.clone())
+        }
     }
 
     fn advance_if(&mut self, c: char) -> bool {
@@ -718,11 +741,13 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
         self.advance();
     }
 
-    fn parse<V: Visitor>(&mut self, visitor: &mut V) -> bool {
+    fn parse<V: Visitor>(&mut self, visitor: &mut V) -> Result<(),Error> {
         loop {
             self.skip_whitespaces_and_comments();
 
-            if self.eos() { return true }
+            if self.eos() {
+                return self.to_err().map_or(Ok(()), |e| Err(IOError(e)));
+            }
 
             match self.ch().unwrap() {
                 // section
@@ -739,15 +764,15 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
 
                     let section_name = self.parse_section_identifier();
                     // don"t allow empty section names
-                    if section_name.is_empty() { return false }
+                    if section_name.is_empty() { return Err(ParseError) }
 
-                    if !self.advance_if(']') { return false }
+                    if !self.advance_if(']') { return Err(ParseError) }
                     if double_section {
-                        if !self.advance_if(']') { return false }
+                        if !self.advance_if(']') { return Err(ParseError) }
                     }
 
                     if !visitor.section(section_name, double_section) {
-                        return false
+                        return Err(ParseError)
                     }
                 }
 
@@ -763,12 +788,12 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
 
                     self.skip_whitespaces();
 
-                    if !self.advance_if('=') { return false } // assign wanted
+                    if !self.advance_if('=') { return Err(ParseError) } // assign wanted
 
                     match self.parse_value() {
-                        NoValue => { return false; }
+                        NoValue => { return Err(ParseError); }
                         val => {
-                            if !visitor.pair(ident, val) { return false; }
+                            if !visitor.pair(ident, val) { return Err(ParseError); }
                         }
                     }
                 }
@@ -778,31 +803,34 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
 }
 
 
-pub fn parse_from_path(path: &Path) -> Value {
+pub fn parse_from_path(path: &Path) -> Result<Value,Error> {
     let file = File::open(path);
     let mut rd = BufferedReader::new(file);
     return parse_from_buffer(&mut rd);
 }
 
-pub fn parse_from_file(name: &str) -> Value {
+pub fn parse_from_file(name: &str) -> Result<Value,Error> {
     parse_from_path(&Path::new(name))
 }
 
-pub fn parse_from_buffer<BUF: Buffer>(rd: &mut BUF) -> Value {
+pub fn parse_from_buffer<BUF: Buffer>(rd: &mut BUF) -> Result<Value,Error> {
     let mut ht: ~HashMap<~str, Value> = ~HashMap::new();
     {
         let mut builder = ValueBuilder::new(&mut ht);
         let mut parser = Parser::new(rd);
 
-        if !parser.parse(&mut builder) {
-            debug!("Error in line: {}", parser.get_line());
-            return NoValue;
+        match parser.parse(&mut builder) {
+            Err(e) => {
+                debug!("Error in line: {}", parser.get_line());
+                return Err(e);
+            }
+            Ok(_) => ()
         }
     }
-    return Table(false, ht);
+    return Ok(Table(false, ht));
 }
 
-pub fn parse_from_bytes(bytes: ~[u8]) -> Value {
+pub fn parse_from_bytes(bytes: ~[u8]) -> Result<Value,Error> {
     let mut rd = MemReader::new(bytes);
     return parse_from_buffer(&mut rd);
 }

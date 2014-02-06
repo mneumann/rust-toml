@@ -1,7 +1,26 @@
 extern mod toml = "toml#0.1";
 
+use std::os;
+
 fn main() {
-  let value = toml::parse_from_file(std::os::args()[1]);
+  if os::args().len() < 2 {
+    println!("usage: ./simple input-file");
+    os::set_exit_status(1);
+    return;
+  }
+  let value = match toml::parse_from_file(os::args()[1]) {
+    Ok(v) => v,
+    Err(toml::ParseError) => {
+      println!("parse error");
+      os::set_exit_status(1);
+      return;
+    }
+    Err(toml::IOError(e)) => {
+      println!("I/O error: {}", e);
+      os::set_exit_status(1);
+      return;
+    }
+  };
   println!("{:s}", value.to_str());
 
   let a = value.lookup_key("a").and_then(|a| a.get_str());
