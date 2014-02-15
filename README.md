@@ -1,11 +1,14 @@
 # rust-toml [![Build Status][travis-image]][travis-link]
 
+[![Ohloh statistics][ohloh-image]][ohloh-link]
+
 [travis-image]: https://travis-ci.org/mneumann/rust-toml.png?branch=master
 [travis-link]: https://travis-ci.org/mneumann/rust-toml
 
-A [TOML][toml-home] configuration file parser for [Rust][rust-home].
+[ohloh-image]: https://www.ohloh.net/p/rust-toml/widgets/project_thin_badge.gif
+[ohloh-link]: https://www.ohloh.net/p/rust-toml
 
-[![Ohloh statistics](https://www.ohloh.net/p/rust-toml/widgets/project_thin_badge.gif)](https://www.ohloh.net/p/rust-toml)
+A [TOML][toml-home] configuration file parser for [Rust][rust-home].
 
 [toml-home]: https://github.com/mojombo/toml
 [rust-home]: http://www.rust-lang.org
