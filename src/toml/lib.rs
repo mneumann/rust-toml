@@ -9,22 +9,18 @@
 ///
 /// [1]: https://github.com/mojombo/toml
 
-extern mod extra;
+extern mod serialize = "serialize#0.10-pre";
 
-use std::io::Buffer;
 use std::hashmap::HashMap;
 use std::char;
+use std::mem;
 
-use std::io;
 use std::io::{IoError,IoResult,EndOfFile};
-use std::io::MemReader;
+use std::io::{Buffer,MemReader,BufferedReader};
 use std::io::File;
-use std::io::BufferedReader;
 use std::path::Path;
 
-use extra::serialize;
-use extra::serialize::Decodable;
-use std::util::replace;
+use serialize::Decodable;
 use std::vec::MoveItems;
 use std::hashmap::MoveEntries;
 
@@ -48,7 +44,7 @@ pub enum Error {
     /// An parser error occurred during parsing
     ParseError,
     /// An I/O error occurred during parsing
-    IOError(io::IoError)
+    IOError(IoError)
 }
 
 //
@@ -909,7 +905,7 @@ impl serialize::Decoder for Decoder {
     }
 
     fn read_str(&mut self) -> ~str {
-        match replace(&mut self.value, NoValue) {
+        match mem::replace(&mut self.value, NoValue) {
             String(s) => s,
             _ => fail!()
         }
@@ -920,7 +916,7 @@ impl serialize::Decoder for Decoder {
     fn read_enum_variant_arg<T>(&mut self, _idx: uint, _f: |&mut Decoder| -> T) -> T { fail!() }
 
     fn read_seq<T>(&mut self, f: |&mut Decoder, uint| -> T) -> T {
-        match replace(&mut self.value, NoValue) {
+        match mem::replace(&mut self.value, NoValue) {
             Array(a) | TableArray(a) => {
                 let l = a.len();
                 f(&mut Decoder::new_state(Arr(a.move_iter())), l)
@@ -940,7 +936,7 @@ impl serialize::Decoder for Decoder {
     }
 
     fn read_struct<T>(&mut self, _name: &str, _len: uint, f: |&mut Decoder| -> T) -> T {
-        match replace(&mut self.value, NoValue) {
+        match mem::replace(&mut self.value, NoValue) {
             Table(_, hm) => {
                 f(&mut Decoder::new_state(Tab(hm)))
             }
@@ -969,7 +965,7 @@ impl serialize::Decoder for Decoder {
     }
 
     fn read_map<T>(&mut self, f: |&mut Decoder, uint| -> T) -> T {
-        match replace(&mut self.value, NoValue) {
+        match mem::replace(&mut self.value, NoValue) {
             Table(_, hm) => {
                 let len = hm.len();
                 f(&mut Decoder::new_state(Map(hm.move_iter())), len)

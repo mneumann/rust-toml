@@ -1,4 +1,4 @@
-extern mod extra;
+extern mod serialize = "serialize#0.10-pre";
 extern mod toml = "toml#0.1";
 
 use std::os;
