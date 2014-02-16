@@ -149,33 +149,33 @@ impl Value {
         }
     }
 
+    fn lookup_path_element<'a>(&'a self, pe: PathElement) -> Option<&'a Value> {
+        match pe {
+            Key(key) => self.lookup_key(key),
+            Idx(idx) => self.lookup_idx(idx)
+        }
+    }
+
     pub fn lookup_path<'a>(&'a self, path: &[&str]) -> Option<&'a Value> {
-        if path.is_empty() {
-            Some(self)
-        } else {
-            self.lookup_key(path[0]).and_then(|a| a.lookup_path(path.tail()))
+        match path {
+          []             => Some(self),
+          [head, ..tail] => self.lookup_key(head).and_then(|a| a.lookup_path(tail))
         }
     }
 
     pub fn lookup_path_elts<'a>(&'a self, path: &[PathElement]) -> Option<&'a Value> {
-        if path.is_empty() {
-            Some(self)
-        } else {
-            match path[0] {
-                Key(key) => self.lookup_key(key).and_then(|a| a.lookup_path_elts(path.tail())),
-                Idx(idx) => self.lookup_idx(idx).and_then(|a| a.lookup_path_elts(path.tail()))
-            }
+        match path {
+          []             => Some(self),
+          [head, ..tail] => self.lookup_path_element(head).and_then(|a| a.lookup_path_elts(tail))
         }
     }
 
     pub fn lookup<'a, 'b>(&'a self, path: &'b str) -> Option<&'a Value> {
         let paths: ~[&'b str] = path.split_str(".").collect();
         let path_elts: ~[PathElement<'b>] = paths.map(|&t| {
-            let idx: Option<uint> = FromStr::from_str(t);
-            if idx.is_some() {
-                Idx(idx.unwrap())
-            } else {
-                Key(t)
+            match from_str::<uint>(t) {
+                Some(idx) => Idx(idx),
+                None => Key(t)
             }
         });
         return self.lookup_path_elts(path_elts);
@@ -228,7 +228,7 @@ impl<'a> ValueBuilder<'a> {
                         }
                         _ => {
                             // TableArray's only contain Table's
-                            assert!(false);
+                            unreachable!();
                         }
                     }
                 }
@@ -294,8 +294,7 @@ impl<'a> ValueBuilder<'a> {
                         }
                         _ => {
                             // TableArray's only contain Table's
-                            assert!(false);
-                            return false;
+                            unreachable!();
                         }
                     }
                 }
@@ -810,7 +809,7 @@ pub fn parse_from_file(name: &str) -> Result<Value,Error> {
 }
 
 pub fn parse_from_buffer<BUF: Buffer>(rd: &mut BUF) -> Result<Value,Error> {
-    let mut ht: ~HashMap<~str, Value> = ~HashMap::new();
+    let mut ht = ~HashMap::<~str, Value>::new();
     {
         let mut builder = ValueBuilder::new(&mut ht);
         let mut parser = Parser::new(rd);
