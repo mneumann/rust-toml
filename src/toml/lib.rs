@@ -180,14 +180,22 @@ impl Value {
     }
 
     pub fn lookup<'a>(&'a self, path: &'a str) -> Option<&'a Value> {
-        let paths: ~[&'a str] = path.split_str(".").collect();
-        let path_elts: ~[PathElement<'a>] = paths.map(|&t| {
-            match from_str::<uint>(t) {
+        let mut curr: Option<&'a Value> = Some(self);
+
+        for p in path.split_str(".") {
+          match curr {
+            None => break,
+            Some(s) => { 
+              let elm = match from_str::<uint>(p) {
                 Some(idx) => Idx(idx),
-                None => Key(t)
+                None => Key(p),
+              };
+              curr = s.lookup_elm(&elm);
             }
-        });
-        self.lookup_elm(&path_elts.as_slice())
+          }
+        }
+
+        return curr 
     }
 }
 
