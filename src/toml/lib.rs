@@ -9,7 +9,7 @@
 ///
 /// [1]: https://github.com/mojombo/toml
 
-extern mod serialize = "serialize#0.10-pre";
+extern crate serialize = "serialize#0.10-pre";
 
 use std::hashmap::HashMap;
 use std::char;

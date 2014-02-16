@@ -1,4 +1,4 @@
-extern mod toml = "toml#0.1";
+extern crate toml = "toml#0.1";
 
 use std::os;
 

@@ -5,9 +5,9 @@
 // If given a path, it will perform the same tests like toml-test [1],
 // so no need to install "go" :).
 
-extern mod extra = "extra#0.10-pre";
-extern mod collections = "collections#0.10-pre";
-extern mod toml = "toml#0.1";
+extern crate extra = "extra#0.10-pre";
+extern crate collections = "collections#0.10-pre";
+extern crate toml = "toml#0.1";
 
 use extra::json::{Json,String,List,Object};
 

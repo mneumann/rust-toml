@@ -1,5 +1,5 @@
-extern mod serialize = "serialize#0.10-pre";
-extern mod toml = "toml#0.1";
+extern crate serialize = "serialize#0.10-pre";
+extern crate toml = "toml#0.1";
 
 use std::os;
 
