@@ -71,6 +71,50 @@ enum PathElement<'a> {
     Idx(uint)
 }
 
+trait LookupValue<'a> {
+    fn lookup_in(&self, value: &'a Value) -> Option<&'a Value>;
+}
+
+impl<'a> LookupValue<'a> for uint {
+    fn lookup_in(&self, value: &'a Value) -> Option<&'a Value> {
+        match value {
+           &TableArray(ref tableary) => {
+               tableary.get(*self)
+           }
+           _ => { None }
+        }
+    }
+}
+
+impl<'a, 'b> LookupValue<'a> for &'b str {
+    fn lookup_in(&self, value: &'a Value) -> Option<&'a Value> {
+        match value {
+            &Table(_, ref map) => {
+                map.find_equiv(self)
+            }
+            _ => { None }
+        }
+    }
+}
+
+impl<'a, 'b> LookupValue<'a> for PathElement<'b> {
+    fn lookup_in(&self, value: &'a Value) -> Option<&'a Value> {
+        match *self {
+            Key(key) => key.lookup_in(value),
+            Idx(idx) => idx.lookup_in(value)
+        }
+    }
+}
+
+impl<'a, 'b, 'c> LookupValue<'a> for &'b[PathElement<'c>] {
+    fn lookup_in(&self, value: &'a Value) -> Option<&'a Value> {
+        match self.head() {
+          None => Some(value),
+          Some(head) => value.lookup_elm(head).and_then(|a| a.lookup_elm(&self.tail()))
+        }
+    }
+}
+
 impl Value {
     pub fn get_bool(&self) -> Option<bool> {
         match self {
@@ -122,15 +166,10 @@ impl Value {
         }
     }
 
-    pub fn lookup_key<'a>(&'a self, key: &str) -> Option<&'a Value> {
-        match self {
-            &Table(_, ref map) => {
-                map.find_equiv(&key)
-            }
-            _ => { None }
-        }
+    pub fn lookup_elm<'a>(&'a self, elm: &LookupValue<'a>) -> Option<&'a Value> {
+        elm.lookup_in(self)
     }
-
+ 
     pub fn lookup_vec<'a>(&'a self, idx: uint) -> Option<&'a Value> {
         match self {
             &Array(ref ary) => {
@@ -140,45 +179,15 @@ impl Value {
         }
     }
 
-    pub fn lookup_idx<'a>(&'a self, idx: uint) -> Option<&'a Value> {
-        match self {
-            &TableArray(ref tableary) => {
-                tableary.get(idx)
-            }
-            _ => { None }
-        }
-    }
-
-    fn lookup_path_element<'a>(&'a self, pe: PathElement) -> Option<&'a Value> {
-        match pe {
-            Key(key) => self.lookup_key(key),
-            Idx(idx) => self.lookup_idx(idx)
-        }
-    }
-
-    pub fn lookup_path<'a>(&'a self, path: &[&str]) -> Option<&'a Value> {
-        match path {
-          []             => Some(self),
-          [head, ..tail] => self.lookup_key(head).and_then(|a| a.lookup_path(tail))
-        }
-    }
-
-    pub fn lookup_path_elts<'a>(&'a self, path: &[PathElement]) -> Option<&'a Value> {
-        match path {
-          []             => Some(self),
-          [head, ..tail] => self.lookup_path_element(head).and_then(|a| a.lookup_path_elts(tail))
-        }
-    }
-
-    pub fn lookup<'a, 'b>(&'a self, path: &'b str) -> Option<&'a Value> {
-        let paths: ~[&'b str] = path.split_str(".").collect();
-        let path_elts: ~[PathElement<'b>] = paths.map(|&t| {
+    pub fn lookup<'a>(&'a self, path: &'a str) -> Option<&'a Value> {
+        let paths: ~[&'a str] = path.split_str(".").collect();
+        let path_elts: ~[PathElement<'a>] = paths.map(|&t| {
             match from_str::<uint>(t) {
                 Some(idx) => Idx(idx),
                 None => Key(t)
             }
         });
-        return self.lookup_path_elts(path_elts);
+        self.lookup_elm(&path_elts.as_slice())
     }
 }
 
