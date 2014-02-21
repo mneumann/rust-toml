@@ -140,10 +140,9 @@ fn independent_test_runner(path: ~str) {
 }
 
 fn main() {
-    match os::args() {
-      [_] => toml_test_runner(),
-      [_, path] => independent_test_runner(path),
-      [arg0, ..] => fail!("USAGE: {:s} [path]", arg0),
-      _ => fail!()
+    match os::args().len() {
+      1 => toml_test_runner(),
+      2 => independent_test_runner(path),
+      _ => fail!("USAGE: {:s} [path]", os::args()[0]),
     }
 }
