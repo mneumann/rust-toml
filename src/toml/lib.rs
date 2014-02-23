@@ -219,7 +219,7 @@ impl<'a> ValueBuilder<'a> {
 
         if path.head().unwrap().is_empty() { return false } // don't allow empty keys
 
-        let term_rec: bool = (path.len() == 1);
+        let term_rec: bool = path.len() == 1;
 
         let head = path.head().unwrap(); // TODO: optimize
 
