@@ -34,7 +34,7 @@ Given the following TOML configuration file:
 You can access it like in the example below:
 
 ```rust
-extern create toml = "github.com/mneumann/rust-toml#toml:0.1";
+extern crate toml = "github.com/mneumann/rust-toml#toml:0.1";
 
 fn main() {
     let root = toml::parse_from_file("products.toml").unwrap();
