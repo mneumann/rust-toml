@@ -7,12 +7,11 @@
 
 extern crate extra = "extra#0.10-pre";
 extern crate collections = "collections#0.10-pre";
-extern crate toml = "toml#0.1";
+extern crate toml = "github.com/mneumann/rust-toml#toml:0.1";
 
 use extra::json::{Json,String,List,Object};
 
 use collections::treemap::TreeMap;
-use toml::{Unsigned,Signed,Float};
 use std::os;
 use std::path::Path;
 use std::io::fs::walk_dir;
@@ -55,9 +54,9 @@ fn to_json(v: &toml::Value) -> Json {
         }
         &toml::Boolean(true) => { to_json_type(~"bool", String(~"true")) }
         &toml::Boolean(false) => { to_json_type(~"bool", String(~"false")) }
-        &Unsigned(n) => { to_json_type(~"integer", String(n.to_str())) }
-        &Signed(n) => { to_json_type(~"integer", String("-" + n.to_str())) }
-        &Float(n) => { to_json_type(~"float", String(format_float(n))) }
+        &toml::PosInt(n) => { to_json_type(~"integer", String(n.to_str())) }
+        &toml::NegInt(n) => { to_json_type(~"integer", String("-" + n.to_str())) }
+        &toml::Float(n) => { to_json_type(~"float", String(format_float(n))) }
         &toml::String(ref str) => { to_json_type(~"string", String(str.clone())) }
         &toml::Datetime(y,m,d,h,mi,s) => {
             let s = format!("{:04u}-{:02u}-{:02u}T{:02u}:{:02u}:{:02u}Z", y,m,d,h,mi,s);

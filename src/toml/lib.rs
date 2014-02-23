@@ -28,8 +28,8 @@ use std::hashmap::MoveEntries;
 pub enum Value {
     NoValue,
     Boolean(bool),
-    Unsigned(u64),
-    Signed(u64),
+    PosInt(u64),
+    NegInt(u64),
     Float(f64),
     String(~str),
     Datetime(u16,u8,u8,u8,u8,u8),
@@ -54,10 +54,10 @@ pub enum Error {
 fn have_equiv_types(v1: &Value, v2: &Value) -> bool {
     match (v1, v2) {
         (&Boolean(_), &Boolean(_)) => true,
-        (&Unsigned(_), &Unsigned(_)) => true,
-        (&Unsigned(_), &Signed(_)) => true,
-        (&Signed(_), &Unsigned(_)) => true,
-        (&Signed(_), &Signed(_)) => true,
+        (&PosInt(_), &PosInt(_)) => true,
+        (&PosInt(_), &NegInt(_)) => true,
+        (&NegInt(_), &PosInt(_)) => true,
+        (&NegInt(_), &NegInt(_)) => true,
         (&Float(_), &Float(_)) => true,
         (&String(_), &String(_)) => true,
         (&Datetime(..), &Datetime(..)) => true,
@@ -123,10 +123,10 @@ impl Value {
         }
     }
 
-    pub fn get_int(&self) -> Option<i64> {
+    pub fn get_int(&self) -> Option<i64> { // XXX
         match self {
-            &Unsigned(u) => { Some(u as i64) } // XXX
-            &Signed(u) => { Some(-(u as i64)) } // XXX
+            &PosInt(u) => { Some(u.to_i64().unwrap()) } // XXX
+            &NegInt(u) => { Some(-(u.to_i64().unwrap())) } // XXX
             _ => { None }
         }
     }
@@ -482,7 +482,7 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
                             return self.parse_float_rest(n, -1.0);
                         }
                         else {
-                            return Signed(n);
+                            return NegInt(n);
                         }
                     }
                     (None, _) => {
@@ -552,7 +552,7 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
                                 }
                             }
                             _ => {
-                                return Unsigned(n)
+                                return PosInt(n)
                             }
                         }
                     }
@@ -873,7 +873,7 @@ impl serialize::Decoder for Decoder {
 
     fn read_u64(&mut self) -> u64 {
         match self.value {
-            Unsigned(v) => v,
+            PosInt(v) => v,
             _ => fail!()
         }
     }
@@ -885,8 +885,8 @@ impl serialize::Decoder for Decoder {
 
     fn read_i64(&mut self) -> i64 {
         match self.value {
-            Unsigned(v) => v.to_i64().unwrap(),
-            Signed(v) => v.to_i64().unwrap(),
+            PosInt(v) => v.to_i64().unwrap(),
+            NegInt(v) => -(v.to_i64().unwrap()),
             _ => fail!()
         }
     }
