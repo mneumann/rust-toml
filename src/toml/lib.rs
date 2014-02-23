@@ -1,15 +1,15 @@
-#[crate_id = "toml#0.1"];
+#[crate_id = "github.com/mneumann/rust-toml#toml:0.1"];
 #[desc = "A TOML configuration file parser for Rust"];
 #[license = "MIT"];
 #[crate_type = "lib"];
 
 /// A TOML [1] configuration file parser
 ///
-/// Copyright (c) 2014 by Michael Neumann
+/// Copyright (c) 2014 by Michael Neumann (mneumann@ntecs.de)
 ///
 /// [1]: https://github.com/mojombo/toml
 
-extern crate serialize = "serialize#0.10-pre";
+extern crate serialize;
 
 use std::hashmap::HashMap;
 use std::char;

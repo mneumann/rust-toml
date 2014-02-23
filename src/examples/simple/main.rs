@@ -1,4 +1,4 @@
-extern crate toml = "toml#0.1";
+extern crate toml = "github.com/mneumann/rust-toml#toml:0.1";
 
 use std::os;
 
