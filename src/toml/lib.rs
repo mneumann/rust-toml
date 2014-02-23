@@ -16,7 +16,7 @@ use std::char;
 use std::mem;
 
 use std::io::{IoError,IoResult,EndOfFile};
-use std::io::{Buffer,MemReader,BufferedReader};
+use std::io::{Buffer,BufReader,BufferedReader};
 use std::io::File;
 use std::path::Path;
 
@@ -842,8 +842,8 @@ pub fn parse_from_buffer<BUF: Buffer>(rd: &mut BUF) -> Result<Value,Error> {
     return Ok(Table(false, ht));
 }
 
-pub fn parse_from_bytes(bytes: ~[u8]) -> Result<Value,Error> {
-    let mut rd = MemReader::new(bytes);
+pub fn parse_from_bytes(bytes: &[u8]) -> Result<Value,Error> {
+    let mut rd = BufReader::new(bytes);
     return parse_from_buffer(&mut rd);
 }
 

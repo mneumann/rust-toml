@@ -29,7 +29,7 @@ fn main() {
           name = "Product 2"
     "###;
 
-    let value = match toml::parse_from_bytes(toml.as_bytes().to_owned()) {
+    let value = match toml::parse_from_bytes(toml.as_bytes()) {
         Ok(v) => v,
         Err(toml::ParseError) => {
             println!("parse error");
