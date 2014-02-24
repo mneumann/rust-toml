@@ -42,7 +42,7 @@ fn main() {
             return;
         }
     };
-    println!("{:s}", value.to_str());
+    println!("{:?}", value);
 
     let cfg: Config = toml::from_toml(value);
     println!("{:s}", cfg.to_str());

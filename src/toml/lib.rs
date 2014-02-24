@@ -24,7 +24,9 @@ use std::path::Path;
 
 use serialize::Decodable;
 
-#[deriving(Show,Clone)]
+use std::fmt;
+
+#[deriving(Clone)]
 pub enum Value {
     NoValue,
     Boolean(bool),
@@ -37,6 +39,26 @@ pub enum Value {
     TableArray(~[Value]),
     Table(bool, ~HashMap<~str, Value>) // bool=true iff section already defiend
 }
+
+impl fmt::Show for Value {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            &NoValue       => write!(fmt.buf, "NoValue"),
+            &Boolean(b)    => write!(fmt.buf, "Boolean({:b})", b),
+            &PosInt(n)     => write!(fmt.buf, "PosInt({:u})", n),
+            &NegInt(n)     => write!(fmt.buf, "NegInt({:u})", n),
+            &Float(f)      => write!(fmt.buf, "Float({:f})", f),
+            &String(ref s) => write!(fmt.buf, "String({:s})", s.as_slice()),
+            &Datetime(a,b,c,d,e,f) => 
+                write!(fmt.buf, "Datetime({},{},{},{},{},{})", a,b,c,d,e,f),
+            &Array(ref arr) => write!(fmt.buf, "Array({:?})", arr),
+            &TableArray(ref arr) => write!(fmt.buf, "TableArray({:?})", arr),
+            &Table(_, ref hm) => write!(fmt.buf, "Table({:?})", hm)
+        }
+    }
+}
+
+
 
 /// Possible errors returned from the parse functions
 #[deriving(Show,Clone,Eq)]

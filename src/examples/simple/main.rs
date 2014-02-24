@@ -21,7 +21,7 @@ fn main() {
       return;
     }
   };
-  println!("{:s}", value.to_str());
+  println!("{}", value);
 
   let a = value.lookup_elm(& &"a").and_then(|a| a.get_str());
   if a.is_some() { println!("Found a: {:?}", a) }
@@ -32,6 +32,8 @@ fn main() {
   let a = value.lookup("abc.def.a");
   if a.is_some() { println!("Found a: {:?}", a) }
 
-  let product_0 = value.lookup("products.0");
-  if product_0.is_some() { println!("Found product[0]: {:?}", product_0) }
+  match value.lookup("products.0") {
+    Some(product_0) => println!("Found product[0]: {:?}", product_0),
+    _ => println!("product[0] not found")
+  }
 }
