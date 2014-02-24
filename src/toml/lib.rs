@@ -10,21 +10,21 @@
 /// [1]: https://github.com/mojombo/toml
 
 extern crate serialize;
+extern crate collections;
 
-use std::hashmap::HashMap;
 use std::char;
 use std::mem;
 
-use std::io::{IoError,IoResult,EndOfFile};
+use collections::hashmap::{HashMap,MoveEntries};
+use std::vec::MoveItems;
+
+use std::io::{File,IoError,IoResult,EndOfFile};
 use std::io::{Buffer,BufReader,BufferedReader};
-use std::io::File;
 use std::path::Path;
 
 use serialize::Decodable;
-use std::vec::MoveItems;
-use std::hashmap::MoveEntries;
 
-#[deriving(ToStr,Clone)]
+#[deriving(Show,Clone)]
 pub enum Value {
     NoValue,
     Boolean(bool),
@@ -39,7 +39,7 @@ pub enum Value {
 }
 
 /// Possible errors returned from the parse functions
-#[deriving(ToStr,Clone,Eq)]
+#[deriving(Show,Clone,Eq)]
 pub enum Error {
     /// An parser error occurred during parsing
     ParseError,
