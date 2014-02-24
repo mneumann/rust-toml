@@ -10,8 +10,9 @@
 /// [1]: https://github.com/mojombo/toml
 
 extern crate serialize;
+extern crate collections;
 
-use std::hashmap::HashMap;
+use collections::hashmap::HashMap;
 use std::char;
 use std::mem;
 
@@ -22,9 +23,9 @@ use std::path::Path;
 
 use serialize::Decodable;
 use std::vec::MoveItems;
-use std::hashmap::MoveEntries;
+use collections::hashmap::MoveEntries;
 
-#[deriving(ToStr,Clone)]
+#[deriving(Show,Clone)]
 pub enum Value {
     NoValue,
     Boolean(bool),
@@ -35,7 +36,7 @@ pub enum Value {
     Datetime(u16,u8,u8,u8,u8,u8),
     Array(~[Value]),
     TableArray(~[Value]),
-    Table(bool, ~HashMap<~str, Value>) // bool=true iff section already defiend
+    Table(bool, HashMap<~str, Value>) // bool=true iff section already defiend
 }
 
 /// Possible errors returned from the parse functions
@@ -152,7 +153,7 @@ impl Value {
         }
     }
 
-    pub fn get_table<'a>(&'a self) -> Option<&'a ~HashMap<~str, Value>> {
+    pub fn get_table<'a>(&'a self) -> Option<&'a HashMap<~str, Value>> {
         match self {
             &Table(_, ref table) => { Some(table) }
             _ => { None }
@@ -205,16 +206,16 @@ trait Visitor {
 }
 
 struct ValueBuilder<'a> {
-    root: &'a mut ~HashMap<~str, Value>,
+    root: &'a mut HashMap<~str, Value>,
     current_path: ~[~str]
 }
 
 impl<'a> ValueBuilder<'a> {
-    fn new(root: &'a mut ~HashMap<~str, Value>) -> ValueBuilder<'a> {
+    fn new(root: &'a mut HashMap<~str, Value>) -> ValueBuilder<'a> {
         ValueBuilder { root: root, current_path: ~[] }
     }
 
-    fn recursive_create_tree(path: &[~str], ht: &mut ~HashMap<~str, Value>, is_array: bool) -> bool {
+    fn recursive_create_tree(path: &[~str], ht: &mut HashMap<~str, Value>, is_array: bool) -> bool {
         assert!(path.len() > 0);
 
         if path.head().unwrap().is_empty() { return false } // don't allow empty keys
@@ -229,7 +230,7 @@ impl<'a> ValueBuilder<'a> {
 
                 if term_rec { // terminal recursion
                     if is_array {
-                        table_array.push(Table(true, ~HashMap::new()));
+                        table_array.push(Table(true, HashMap::new()));
                         return true;
                     }
                     else {
@@ -279,11 +280,11 @@ impl<'a> ValueBuilder<'a> {
 
         let value =
         if term_rec { // terminal recursion
-            if is_array { TableArray(~[Table(false, ~HashMap::new())]) }
-            else { Table(true, ~HashMap::new()) }
+            if is_array { TableArray(~[Table(false, HashMap::new())]) }
+            else { Table(true, HashMap::new()) }
         }
         else {
-            let mut table = ~HashMap::new();
+            let mut table = HashMap::new();
             let ok = ValueBuilder::recursive_create_tree(path.tail(), &mut table, is_array);
             if !ok { return false }
             Table(false, table)
@@ -293,7 +294,7 @@ impl<'a> ValueBuilder<'a> {
         return ok;
     }
 
-    fn insert_value(path: &[~str], key: &str, ht: &mut ~HashMap<~str, Value>, val: Value) -> bool {
+    fn insert_value(path: &[~str], key: &str, ht: &mut HashMap<~str, Value>, val: Value) -> bool {
         if path.is_empty() {
             return ht.insert(key.to_owned(), val);
         }
@@ -826,7 +827,7 @@ pub fn parse_from_file(name: &str) -> Result<Value,Error> {
 }
 
 pub fn parse_from_buffer<BUF: Buffer>(rd: &mut BUF) -> Result<Value,Error> {
-    let mut ht = ~HashMap::<~str, Value>::new();
+    let mut ht = HashMap::<~str, Value>::new();
     {
         let mut builder = ValueBuilder::new(&mut ht);
         let mut parser = Parser::new(rd);
@@ -850,7 +851,7 @@ pub fn parse_from_bytes(bytes: &[u8]) -> Result<Value,Error> {
 enum State {
     No,
     Arr(MoveItems<Value>),
-    Tab(~HashMap<~str, Value>),
+    Tab(HashMap<~str, Value>),
     Map(MoveEntries<~str, Value>)
 }
 
