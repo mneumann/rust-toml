@@ -21,7 +21,7 @@ fn main() {
       return;
     }
   };
-  println!("{:s}", value.to_str());
+  println!("{}", value);
 
   let a = value.lookup_elm(& &"a").and_then(|a| a.get_str());
   if a.is_some() { println!("Found a: {:?}", a) }
