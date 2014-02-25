@@ -5,11 +5,11 @@
 // If given a path, it will perform the same tests like toml-test [1],
 // so no need to install "go" :).
 
-extern crate extra = "extra#0.10-pre";
+extern crate serialize;
 extern crate collections = "collections#0.10-pre";
 extern crate toml = "github.com/mneumann/rust-toml#toml:0.1";
 
-use extra::json::{Json,String,List,Object};
+use serialize::json::{Json,String,List,Object};
 
 use collections::treemap::TreeMap;
 use std::os;
