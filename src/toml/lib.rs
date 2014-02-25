@@ -42,18 +42,19 @@ pub enum Value {
 
 impl fmt::Show for Value {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            &NoValue       => write!(fmt.buf, "NoValue"),
-            &Boolean(b)    => write!(fmt.buf, "Boolean({:b})", b),
-            &PosInt(n)     => write!(fmt.buf, "PosInt({:u})", n),
-            &NegInt(n)     => write!(fmt.buf, "NegInt({:u})", n),
-            &Float(f)      => write!(fmt.buf, "Float({:f})", f),
-            &String(ref s) => write!(fmt.buf, "String({:s})", s.as_slice()),
-            &Datetime(a,b,c,d,e,f) => 
-                write!(fmt.buf, "Datetime({},{},{},{},{},{})", a,b,c,d,e,f),
-            &Array(ref arr) => write!(fmt.buf, "Array({:?})", arr),
-            &TableArray(ref arr) => write!(fmt.buf, "TableArray({:?})", arr),
-            &Table(_, ref hm) => write!(fmt.buf, "Table({:?})", hm)
+        match *self {
+            NoValue       => write!(fmt.buf, "NoValue"),
+            Boolean(b)    => write!(fmt.buf, "Boolean({:b})", b),
+            PosInt(n)     => write!(fmt.buf, "PosInt({:u})", n),
+            NegInt(n)     => write!(fmt.buf, "NegInt({:u})", n),
+            Float(f)      => write!(fmt.buf, "Float({:f})", f),
+            String(ref s) => write!(fmt.buf, "String({:s})", s.as_slice()),
+            Datetime(a,b,c,d,e,f) =>  {
+                write!(fmt.buf, "Datetime({},{},{},{},{},{})", a,b,c,d,e,f)
+            }
+            Array(ref arr) => write!(fmt.buf, "Array({})", arr.as_slice()),
+            TableArray(ref arr) => write!(fmt.buf, "TableArray({})", arr.as_slice()),
+            Table(_, ref hm) => write!(fmt.buf, "Table({})", **hm)
         }
     }
 }
