@@ -9,6 +9,7 @@ extern crate serialize;
 extern crate collections = "collections#0.10-pre";
 extern crate toml = "github.com/mneumann/rust-toml#toml:0.1";
 
+use serialize::json;
 use serialize::json::{Json,String,List,Object};
 
 use collections::treemap::TreeMap;
@@ -105,7 +106,7 @@ fn independent_test_runner(path: ~str) {
       let jsonbytes = File::open(&Path::new(jsonfile)).read_to_end().unwrap();
       let jsonstr = std::str::from_utf8(jsonbytes).unwrap();
 
-      let result = extra::json::from_str(jsonstr);
+      let result = json::from_str(jsonstr);
       if result.is_err() { fail!() }
 
       tests += 1;
