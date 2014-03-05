@@ -3,7 +3,7 @@ extern crate toml = "github.com/mneumann/rust-toml#toml:0.1";
 
 use std::os;
 
-#[deriving(ToStr,Decodable)]
+#[deriving(Show,Decodable)]
 struct Config {
     host: ~str,
     port: Option<uint>,
@@ -11,7 +11,7 @@ struct Config {
     products: ~[Product]
 }
 
-#[deriving(ToStr,Decodable)]
+#[deriving(Show,Decodable)]
 struct Product {
     id: uint,
     name: ~str
