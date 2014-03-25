@@ -888,7 +888,7 @@ impl Decoder {
     pub fn new(value: Value) -> Decoder {
         Decoder {value: value, state: No}
     }
-    pub fn new_state(state: State) -> Decoder {
+    fn new_state(state: State) -> Decoder {
         Decoder {value: NoValue, state: state}
     }
 }
