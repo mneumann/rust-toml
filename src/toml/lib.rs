@@ -18,7 +18,7 @@ use std::char;
 use std::mem;
 
 use collections::hashmap::{HashMap,MoveEntries};
-use std::vec::MoveItems;
+use std::slice::MoveItems;
 
 use std::io::{File,IoError,IoResult,EndOfFile};
 use std::io::{Buffer,BufReader,BufferedReader};
