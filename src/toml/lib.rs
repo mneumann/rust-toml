@@ -882,8 +882,8 @@ enum State {
 }
 
 pub struct Decoder {
-    priv value: Value,
-    priv state: State
+    value: Value,
+    state: State
 }
 
 impl Decoder {
