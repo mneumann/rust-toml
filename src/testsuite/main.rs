@@ -6,7 +6,7 @@
 // so no need to install "go" :).
 
 extern crate serialize;
-extern crate collections = "collections#0.10-pre";
+extern crate collections;
 extern crate toml = "github.com/mneumann/rust-toml#toml:0.1";
 
 use serialize::json;
