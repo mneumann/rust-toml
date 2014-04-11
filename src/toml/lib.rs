@@ -653,7 +653,7 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
     fn parse_string(&mut self) -> Option<~str> {
         if !self.advance_if('"') { return None }
 
-        let mut str = ~"";
+        let mut str = StrBuf::new();
         loop {
             if self.ch().is_none() { return None }
             match self.ch().unwrap() {
@@ -697,7 +697,7 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
                 }
                 '"' => {
                     self.advance();
-                    return Some(str);
+                    return Some(str.into_owned());
                 }
                 c => {
                     str.push_char(c);
@@ -708,7 +708,7 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
     }
 
     fn read_token(&mut self, f: |char| -> bool) -> ~str {
-        let mut token = ~"";
+        let mut token = StrBuf::new();
         loop {
             match self.ch() {
                 Some(ch) => {
@@ -720,7 +720,7 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
             self.advance();
         }
 
-        return token;
+        return token.into_owned();
     }
 
     fn parse_section_identifier(&mut self) -> ~str {
