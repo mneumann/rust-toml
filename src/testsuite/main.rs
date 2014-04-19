@@ -6,7 +6,7 @@
 // so no need to install "go" :).
 
 extern crate serialize;
-extern crate collections = "collections#0.10-pre";
+extern crate collections = "collections#0.11-pre";
 extern crate toml = "github.com/mneumann/rust-toml#toml:0.1";
 
 use serialize::json;
@@ -47,11 +47,18 @@ fn to_json(v: &toml::Value) -> Json {
             Object(tree)
         }
         &toml::TableArray(ref arr) => {
-            List(arr.map(|i| to_json(i)))
+            let mut vec : Vec<Json> = Vec::new();
+            for i in arr.iter() {
+                vec.push(to_json(i));
+            }
+            List(vec.as_slice().to_owned())
         }
         &toml::Array(ref arr) => {
-            let list = arr.map(|i| to_json(i));
-            to_json_type(~"array", List(list))
+            let mut vec : Vec<Json> = Vec::new();
+            for i in arr.iter() {
+                vec.push(to_json(i));
+            }
+            to_json_type(~"array", List(vec.as_slice().to_owned()))
         }
         &toml::Boolean(true) => { to_json_type(~"bool", String(~"true")) }
         &toml::Boolean(false) => { to_json_type(~"bool", String(~"false")) }
@@ -67,7 +74,7 @@ fn to_json(v: &toml::Value) -> Json {
 }
 
 fn toml_test_runner() {
-    let toml = toml::parse_from_bytes(std::io::stdin().read_to_end().unwrap()).unwrap();
+    let toml = toml::parse_from_bytes(std::io::stdin().read_to_end().unwrap().as_slice()).unwrap();
     let json = to_json(&toml);
     println!("{:s}", json.to_pretty_str());
 }
@@ -104,7 +111,7 @@ fn independent_test_runner(path: ~str) {
       println!("TEST/VALID:   {}", filename.filename_display());
 
       let jsonbytes = File::open(&Path::new(jsonfile)).read_to_end().unwrap();
-      let jsonstr = std::str::from_utf8(jsonbytes).unwrap();
+      let jsonstr = std::str::from_utf8(jsonbytes.as_slice()).unwrap();
 
       let result = json::from_str(jsonstr);
       if result.is_err() { fail!() }
