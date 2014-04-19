@@ -1,4 +1,3 @@
-.rust
 bin
+/doc/
 lib
-build

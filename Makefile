@@ -5,6 +5,10 @@ LIBNAME := $(shell rustc --crate-file-name src/toml/lib.rs)
 all: lib examples test
 	@## Build library and examples, run tests
 
+doc:
+	@## Build documentation
+	rustdoc src/toml/lib.rs
+
 help:
 	@## Show this help
 	@grep -A1 ^[a-z].*\: Makefile | sed -r 's/: (.*)$$/:/g' | sed ':a;N;$$!ba;s/:\n//g' | sed s,\\#,\\t,g | sed s,@,,g | grep -v \\--
@@ -43,8 +47,8 @@ clean:
 	@## Remove compiled sources
 	-$(RM) -r bin
 	-$(RM) -r lib
+	-$(RM) -r doc
 
 version:
 	@## Display version of source code
 	git describe
-
