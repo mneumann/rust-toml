@@ -18,7 +18,7 @@ use std::char;
 use std::mem;
 
 use collections::hashmap::{HashMap,MoveEntries};
-use std::slice::MoveItems;
+use std::vec::MoveItems;
 
 use std::io::{File,IoError,IoResult,EndOfFile};
 use std::io::{Buffer,BufReader,BufferedReader};
@@ -37,8 +37,8 @@ pub enum Value {
     Float(f64),
     String(~str),
     Datetime(u16,u8,u8,u8,u8,u8),
-    Array(~[Value]),
-    TableArray(~[Value]),
+    Array(Vec<Value>),
+    TableArray(Vec<Value>),
     Table(bool, ~HashMap<~str, Value>) // bool=true iff section already defiend
 }
 
@@ -106,7 +106,7 @@ impl<'a> LookupValue<'a> for uint {
     fn lookup_in(&self, value: &'a Value) -> Option<&'a Value> {
         match value {
            &TableArray(ref tableary) => {
-               tableary.get(*self)
+               tableary.as_slice().get(*self)
            }
            _ => { None }
         }
@@ -172,7 +172,7 @@ impl Value {
         }
     }
 
-    pub fn get_vec<'a>(&'a self) -> Option<&'a ~[Value]> {
+    pub fn get_vec<'a>(&'a self) -> Option<&'a Vec<Value>> {
         match self {
             &Array(ref vec) => { Some(vec) }
             _ => { None }
@@ -186,7 +186,7 @@ impl Value {
         }
     }
 
-    pub fn get_table_array<'a>(&'a self) -> Option<&'a ~[Value]> {
+    pub fn get_table_array<'a>(&'a self) -> Option<&'a Vec<Value>> {
         match self {
             &TableArray(ref vec) => { Some(vec) }
             _ => { None }
@@ -200,7 +200,7 @@ impl Value {
     pub fn lookup_vec<'a>(&'a self, idx: uint) -> Option<&'a Value> {
         match self {
             &Array(ref ary) => {
-                ary.get(idx)
+                ary.as_slice().get(idx)
             }
             _ => { None }
         }
@@ -266,8 +266,8 @@ impl<'a> ValueBuilder<'a> {
                 }
                 else {
                     //let last_table = &mut ;
-                    match table_array[table_array.len()-1] {
-                        Table(_, ref mut hmap) => {
+                    match table_array.mut_last().unwrap() {
+                        &Table(_, ref mut hmap) => {
                             return ValueBuilder::recursive_create_tree(path.tail(), hmap, is_array);
                         }
                         _ => {
@@ -306,7 +306,7 @@ impl<'a> ValueBuilder<'a> {
 
         let value =
         if term_rec { // terminal recursion
-            if is_array { TableArray(~[Table(false, ~HashMap::new())]) }
+            if is_array { TableArray(vec!(Table(false, ~HashMap::new()))) }
             else { Table(true, ~HashMap::new()) }
         }
         else {
@@ -332,8 +332,8 @@ impl<'a> ValueBuilder<'a> {
                 }
                 Some(&TableArray(ref mut table_array)) => {
                     assert!(table_array.len() > 0);
-                    match table_array[table_array.len()-1] {
-                        Table(_, ref mut hmap) => {
+                    match table_array.mut_last().unwrap() {
+                        &Table(_, ref mut hmap) => {
                             return ValueBuilder::insert_value(path.tail(), key, hmap, val);
                         }
                         _ => {
@@ -613,7 +613,7 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
             }
             '[' => {
                 self.advance();
-                let mut arr = ~[];
+                let mut arr = vec!();
                 loop {
                     match self.parse_value() {
                         NoValue => {
@@ -621,7 +621,7 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
                         }
                         val => {
                             if !arr.is_empty() {
-                                if !have_equiv_types(arr.head().unwrap(), &val) {
+                                if !have_equiv_types(arr.as_slice().head().unwrap(), &val) {
                                     debug!("Incompatible element types in array");
                                     return NoValue;
                                 }

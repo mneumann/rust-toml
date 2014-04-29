@@ -28,7 +28,7 @@ fn to_json_type(typ: ~str, val: Json) -> Json {
 fn format_float(f: f64) -> ~str {
     let str = format!("{:.15f}", f);
     let str = str.as_slice();
-    let str = str.trim_right_chars(&'0');
+    let str = str.trim_right_chars('0');
     if str.ends_with(".") {
       str.to_owned() + "0"
     } else {
