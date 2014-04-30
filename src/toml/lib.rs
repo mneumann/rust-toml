@@ -66,8 +66,10 @@ impl fmt::Show for Value {
 /// Possible errors returned from the parse functions
 #[deriving(Show,Clone,Eq)]
 pub enum Error {
-    /// An parser error occurred during parsing
+    /// A parser error occurred during parsing
     ParseError,
+    /// A parser error with some human-readable context
+    ParseErrorInField(~str),
     /// An I/O error occurred during parsing
     IOError(IoError)
 }
@@ -883,15 +885,16 @@ enum State {
 
 pub struct Decoder {
     value: Value,
-    state: State
+    state: State,
+    field: Option<~str>
 }
 
 impl Decoder {
     pub fn new(value: Value) -> Decoder {
-        Decoder {value: value, state: No}
+        Decoder { value: value, state: No, field: None }
     }
     fn new_state(state: State) -> Decoder {
-        Decoder {value: NoValue, state: state}
+        Decoder { value: NoValue, state: state, field: None }
     }
 }
 
@@ -989,7 +992,7 @@ impl serialize::Decoder<Error> for Decoder {
 
     fn read_struct_field<T>(&mut self, name: &str, _idx: uint, f: |&mut Decoder| -> DecodeResult<T>) -> DecodeResult<T> {
         // XXX: assert!(self.value == NoValue);
-        match self.state {
+        let res = match self.state {
             Tab(ref mut tab) => {
                 match tab.pop(&name.to_owned()) { // XXX: pop_equiv(...) or find_equiv_mut...
                     None => f(&mut Decoder::new(NoValue)), // XXX: NoValue means "nil" here
@@ -997,6 +1000,12 @@ impl serialize::Decoder<Error> for Decoder {
                 }
             }
             _ => Err(ParseError)
+        };
+
+        match res {
+            Ok(val) => Ok(val),
+            Err(ParseError) => Err(ParseErrorInField(name.to_owned())),
+            Err(e) => Err(e)
         }
     }
 
