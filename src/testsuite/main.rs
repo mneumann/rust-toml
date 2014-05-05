@@ -20,8 +20,8 @@ use std::io::File;
 
 fn to_json_type(typ: ~str, val: Json) -> Json {
     let mut tree = ~TreeMap::new();
-    tree.insert(~"type", String(typ));
-    tree.insert(~"value", val);
+    tree.insert("type".to_owned(), String(typ));
+    tree.insert("value".to_owned(), val);
     Object(tree)
 }
 
@@ -51,17 +51,17 @@ fn to_json(v: &toml::Value) -> Json {
         }
         &toml::Array(ref arr) => {
             let list = arr.iter().map(|i| to_json(i)).collect();
-            to_json_type(~"array", List(list))
+            to_json_type("array".to_owned(), List(list))
         }
-        &toml::Boolean(true) => { to_json_type(~"bool", String(~"true")) }
-        &toml::Boolean(false) => { to_json_type(~"bool", String(~"false")) }
-        &toml::PosInt(n) => { to_json_type(~"integer", String(n.to_str())) }
-        &toml::NegInt(n) => { to_json_type(~"integer", String("-" + n.to_str())) }
-        &toml::Float(n) => { to_json_type(~"float", String(format_float(n))) }
-        &toml::String(ref str) => { to_json_type(~"string", String(str.clone())) }
+        &toml::Boolean(true) => { to_json_type("bool".to_owned(), String("true".to_owned())) }
+        &toml::Boolean(false) => { to_json_type("bool".to_owned(), String("false".to_owned())) }
+        &toml::PosInt(n) => { to_json_type("integer".to_owned(), String(n.to_str())) }
+        &toml::NegInt(n) => { to_json_type("integer".to_owned(), String("-" + n.to_str())) }
+        &toml::Float(n) => { to_json_type("float".to_owned(), String(format_float(n))) }
+        &toml::String(ref str) => { to_json_type("string".to_owned(), String(str.clone())) }
         &toml::Datetime(y,m,d,h,mi,s) => {
             let s = format!("{:04u}-{:02u}-{:02u}T{:02u}:{:02u}:{:02u}Z", y,m,d,h,mi,s);
-            to_json_type(~"datetime", String(s))
+            to_json_type("datetime".to_owned(), String(s))
         }
     }
 }
