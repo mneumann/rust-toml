@@ -19,7 +19,7 @@ use std::io::fs::walk_dir;
 use std::io::File;
 
 fn to_json_type(typ: ~str, val: Json) -> Json {
-    let mut tree = ~TreeMap::new();
+    let mut tree = box TreeMap::new();
     tree.insert("type".to_owned(), String(typ));
     tree.insert("value".to_owned(), val);
     Object(tree)
@@ -40,7 +40,7 @@ fn to_json(v: &toml::Value) -> Json {
     match v {
         &toml::NoValue => { fail!("Invalid toml document"); }
         &toml::Table(_, ref map) => {
-            let mut tree = ~TreeMap::new();
+            let mut tree = box TreeMap::new();
             for (k, v) in map.iter() {
                 tree.insert(k.clone(), to_json(v));
             }
