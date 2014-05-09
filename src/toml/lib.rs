@@ -235,12 +235,12 @@ trait Visitor {
 
 struct ValueBuilder<'a> {
     root: &'a mut Box<HashMap<~str, Value>>,
-    current_path: ~[~str]
+    current_path: Vec<~str>
 }
 
 impl<'a> ValueBuilder<'a> {
     fn new(root: &'a mut Box<HashMap<~str, Value>>) -> ValueBuilder<'a> {
-        ValueBuilder { root: root, current_path: ~[] }
+        ValueBuilder { root: root, current_path: vec!() }
     }
 
     fn recursive_create_tree(path: &[~str], ht: &mut Box<HashMap<~str, Value>>, is_array: bool) -> bool {

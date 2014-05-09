@@ -8,7 +8,7 @@ fn main() {
     os::set_exit_status(1);
     return;
   }
-  let value = match toml::parse_from_file(os::args()[1]) {
+  let value = match toml::parse_from_file(os::args().get(1).as_slice()) {
     Ok(v) => v,
     Err(toml::ParseError) => {
       println!("parse error");

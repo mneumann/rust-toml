@@ -143,7 +143,7 @@ fn independent_test_runner(path: ~str) {
 fn main() {
     match os::args().len() {
       1 => toml_test_runner(),
-      2 => independent_test_runner(os::args()[1]),
-      _ => fail!("USAGE: {:s} [path]", os::args()[0]),
+      2 => independent_test_runner(os::args().get(1).clone()),
+      _ => fail!("USAGE: {:s} [path]", os::args().get(0).as_slice()),
     }
 }
