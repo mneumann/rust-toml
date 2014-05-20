@@ -17,22 +17,23 @@ use std::os;
 use std::path::Path;
 use std::io::fs::walk_dir;
 use std::io::File;
+use std::fmt::Show;
 
-fn to_json_type(typ: ~str, val: Json) -> Json {
+fn to_json_type(typ: StrBuf, val: Json) -> Json {
     let mut tree = box TreeMap::new();
-    tree.insert("type".to_owned(), String(typ));
-    tree.insert("value".to_owned(), val);
+    tree.insert("type".to_strbuf(), String(typ));
+    tree.insert("value".to_strbuf(), val);
     Object(tree)
 }
 
-fn format_float(f: f64) -> ~str {
+fn format_float(f: f64) -> StrBuf {
     let str = format!("{:.15f}", f);
     let str = str.as_slice();
     let str = str.trim_right_chars('0');
     if str.ends_with(".") {
-      str.to_owned() + "0"
+        format_strbuf!("{}0", str)
     } else {
-      str.to_owned()
+        to_str(str)
     }
 }
 
@@ -51,17 +52,17 @@ fn to_json(v: &toml::Value) -> Json {
         }
         &toml::Array(ref arr) => {
             let list = arr.iter().map(|i| to_json(i)).collect();
-            to_json_type("array".to_owned(), List(list))
+            to_json_type(to_str("array"), List(list))
         }
-        &toml::Boolean(true) => { to_json_type("bool".to_owned(), String("true".to_owned())) }
-        &toml::Boolean(false) => { to_json_type("bool".to_owned(), String("false".to_owned())) }
-        &toml::PosInt(n) => { to_json_type("integer".to_owned(), String(n.to_str())) }
-        &toml::NegInt(n) => { to_json_type("integer".to_owned(), String("-" + n.to_str())) }
-        &toml::Float(n) => { to_json_type("float".to_owned(), String(format_float(n))) }
-        &toml::String(ref str) => { to_json_type("string".to_owned(), String(str.clone())) }
+        &toml::Boolean(true) => { to_json_type(to_str("bool"), String(to_str("true"))) }
+        &toml::Boolean(false) => { to_json_type(to_str("bool"), String(to_str("false"))) }
+        &toml::PosInt(n) => { to_json_type(to_str("integer"), String(to_str(n))) }
+        &toml::NegInt(n) => { to_json_type(to_str("integer"), String(format_strbuf!("-{}", n))) }
+        &toml::Float(n) => { to_json_type(to_str("float"), String(format_float(n))) }
+        &toml::String(ref str) => { to_json_type(to_str("string"), String(StrBuf::from_str(str.as_slice()))) }
         &toml::Datetime(y,m,d,h,mi,s) => {
             let s = format!("{:04u}-{:02u}-{:02u}T{:02u}:{:02u}:{:02u}Z", y,m,d,h,mi,s);
-            to_json_type("datetime".to_owned(), String(s))
+            to_json_type(to_str("datetime"), String(to_str(s)))
         }
     }
 }
@@ -138,6 +139,10 @@ fn independent_test_runner(path: ~str) {
   println!("");
   println!("Tests/PASS/FAIL: {:d}/{:d}/{:d}", tests, passed, failed);
   if failed > 0 { fail!(); }
+}
+
+fn to_str<T: Show>(thing: T) -> StrBuf {
+    format_strbuf!("{}", thing)
 }
 
 fn main() {

@@ -35,28 +35,28 @@ pub enum Value {
     PosInt(u64),
     NegInt(u64),
     Float(f64),
-    String(~str),
+    String(StrBuf),
     Datetime(u16,u8,u8,u8,u8,u8),
     Array(Vec<Value>),
     TableArray(Vec<Value>),
-    Table(bool, Box<HashMap<~str, Value>>) // bool=true iff section already defiend
+    Table(bool, Box<HashMap<StrBuf, Value>>) // bool=true iff section already defiend
 }
 
 impl fmt::Show for Value {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            NoValue       => write!(fmt.buf, "NoValue"),
-            Boolean(b)    => write!(fmt.buf, "Boolean({:b})", b),
-            PosInt(n)     => write!(fmt.buf, "PosInt({:u})", n),
-            NegInt(n)     => write!(fmt.buf, "NegInt({:u})", n),
-            Float(f)      => write!(fmt.buf, "Float({:f})", f),
-            String(ref s) => write!(fmt.buf, "String({:s})", s.as_slice()),
+            NoValue       => write!(fmt, "NoValue"),
+            Boolean(b)    => write!(fmt, "Boolean({:b})", b),
+            PosInt(n)     => write!(fmt, "PosInt({:u})", n),
+            NegInt(n)     => write!(fmt, "NegInt({:u})", n),
+            Float(f)      => write!(fmt, "Float({:f})", f),
+            String(ref s) => write!(fmt, "String({:s})", s.as_slice()),
             Datetime(a,b,c,d,e,f) =>  {
-                write!(fmt.buf, "Datetime({},{},{},{},{},{})", a,b,c,d,e,f)
+                write!(fmt, "Datetime({},{},{},{},{},{})", a,b,c,d,e,f)
             }
-            Array(ref arr) => write!(fmt.buf, "Array({})", arr.as_slice()),
-            TableArray(ref arr) => write!(fmt.buf, "TableArray({})", arr.as_slice()),
-            Table(_, ref hm) => write!(fmt.buf, "Table({})", **hm)
+            Array(ref arr) => write!(fmt, "Array({})", arr.as_slice()),
+            TableArray(ref arr) => write!(fmt, "TableArray({})", arr.as_slice()),
+            Table(_, ref hm) => write!(fmt, "Table({})", **hm)
         }
     }
 }
@@ -69,7 +69,7 @@ pub enum Error {
     /// A parser error occurred during parsing
     ParseError,
     /// A parser error with some human-readable context
-    ParseErrorInField(~str),
+    ParseErrorInField(StrBuf),
     /// An I/O error occurred during parsing
     IOError(IoError)
 }
@@ -167,7 +167,7 @@ impl Value {
         }
     }
 
-    pub fn get_str<'a>(&'a self) -> Option<&'a ~str> {
+    pub fn get_str<'a>(&'a self) -> Option<&'a StrBuf> {
         match self {
             &String(ref str) => { Some(str) }
             _ => { None }
@@ -181,7 +181,7 @@ impl Value {
         }
     }
 
-    pub fn get_table<'a>(&'a self) -> Option<&'a Box<HashMap<~str, Value>>> {
+    pub fn get_table<'a>(&'a self) -> Option<&'a Box<HashMap<StrBuf, Value>>> {
         match self {
             &Table(_, ref table) => { Some(table) }
             _ => { None }
@@ -229,21 +229,21 @@ impl Value {
 }
 
 trait Visitor {
-    fn section(&mut self, name: ~str, is_array: bool) -> bool;
-    fn pair(&mut self, key: ~str, val: Value) -> bool;
+    fn section(&mut self, name: StrBuf, is_array: bool) -> bool;
+    fn pair(&mut self, key: StrBuf, val: Value) -> bool;
 }
 
 struct ValueBuilder<'a> {
-    root: &'a mut Box<HashMap<~str, Value>>,
-    current_path: Vec<~str>
+    root: &'a mut Box<HashMap<StrBuf, Value>>,
+    current_path: Vec<StrBuf>
 }
 
 impl<'a> ValueBuilder<'a> {
-    fn new(root: &'a mut Box<HashMap<~str, Value>>) -> ValueBuilder<'a> {
+    fn new(root: &'a mut Box<HashMap<StrBuf, Value>>) -> ValueBuilder<'a> {
         ValueBuilder { root: root, current_path: vec!() }
     }
 
-    fn recursive_create_tree(path: &[~str], ht: &mut Box<HashMap<~str, Value>>, is_array: bool) -> bool {
+    fn recursive_create_tree(path: &[StrBuf], ht: &mut Box<HashMap<StrBuf, Value>>, is_array: bool) -> bool {
         assert!(path.len() > 0);
 
         if path.head().unwrap().is_empty() { return false } // don't allow empty keys
@@ -317,14 +317,14 @@ impl<'a> ValueBuilder<'a> {
             if !ok { return false }
             Table(false, table)
         };
-        let ok = ht.insert(head.to_owned(), value);
+        let ok = ht.insert(head.to_strbuf(), value);
         assert!(ok);
         return ok;
     }
 
-    fn insert_value(path: &[~str], key: &str, ht: &mut Box<HashMap<~str, Value>>, val: Value) -> bool {
+    fn insert_value(path: &[StrBuf], key: &str, ht: &mut Box<HashMap<StrBuf, Value>>, val: Value) -> bool {
         if path.is_empty() {
-            return ht.insert(key.to_owned(), val);
+            return ht.insert(key.to_strbuf(), val);
         }
         else {
             let head = path.head().unwrap(); // TODO: optimize
@@ -354,8 +354,8 @@ impl<'a> ValueBuilder<'a> {
 }
 
 impl<'a> Visitor for ValueBuilder<'a> {
-    fn section(&mut self, name: ~str, is_array: bool) -> bool {
-        self.current_path = name.split_str(".").map(|i| i.to_owned()).collect();
+    fn section(&mut self, name: StrBuf, is_array: bool) -> bool {
+        self.current_path = name.as_slice().split('.').map(|i| i.to_strbuf()).collect();
 
         let ok = ValueBuilder::recursive_create_tree(self.current_path.as_slice(), self.root, is_array);
         if !ok {
@@ -364,8 +364,8 @@ impl<'a> Visitor for ValueBuilder<'a> {
         return ok;
     }
 
-    fn pair(&mut self, key: ~str, val: Value) -> bool {
-        let ok = ValueBuilder::insert_value(self.current_path.as_slice(), key, self.root, val);
+    fn pair(&mut self, key: StrBuf, val: Value) -> bool {
+        let ok = ValueBuilder::insert_value(self.current_path.as_slice(), key.as_slice(), self.root, val);
         if !ok {
             debug!("Duplicate key: {} in path {:?}", key, self.current_path);
         }
@@ -652,7 +652,7 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
         }
     }
 
-    fn parse_string(&mut self) -> Option<~str> {
+    fn parse_string(&mut self) -> Option<StrBuf> {
         if !self.advance_if('"') { return None }
 
         let mut str = StrBuf::new();
@@ -699,7 +699,7 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
                 }
                 '"' => {
                     self.advance();
-                    return Some(str.into_owned());
+                    return Some(str);
                 }
                 c => {
                     str.push_char(c);
@@ -709,7 +709,7 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
         }
     }
 
-    fn read_token(&mut self, f: |char| -> bool) -> ~str {
+    fn read_token(&mut self, f: |char| -> bool) -> StrBuf {
         let mut token = StrBuf::new();
         loop {
             match self.ch() {
@@ -722,10 +722,10 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
             self.advance();
         }
 
-        return token.into_owned();
+        return token;
     }
 
-    fn parse_section_identifier(&mut self) -> ~str {
+    fn parse_section_identifier(&mut self) -> StrBuf {
         self.read_token(|ch| {
             match ch {
                 '\t' | '\n' | '\r' | '[' | ']' => false,
@@ -855,7 +855,7 @@ pub fn parse_from_file(name: &str) -> Result<Value,Error> {
 }
 
 pub fn parse_from_buffer<BUF: Buffer>(rd: &mut BUF) -> Result<Value,Error> {
-    let mut ht = box HashMap::<~str, Value>::new();
+    let mut ht = box HashMap::<StrBuf, Value>::new();
     {
         let mut builder = ValueBuilder::new(&mut ht);
         let mut parser = Parser::new(rd);
@@ -879,14 +879,14 @@ pub fn parse_from_bytes(bytes: &[u8]) -> Result<Value,Error> {
 enum State {
     No,
     Arr(MoveItems<Value>),
-    Tab(Box<HashMap<~str, Value>>),
-    Map(MoveEntries<~str, Value>)
+    Tab(Box<HashMap<StrBuf, Value>>),
+    Map(MoveEntries<StrBuf, Value>)
 }
 
 pub struct Decoder {
     value: Value,
     state: State,
-    field: Option<~str>
+    field: Option<StrBuf>
 }
 
 impl Decoder {
@@ -947,12 +947,12 @@ impl serialize::Decoder<Error> for Decoder {
     fn read_char(&mut self) -> DecodeResult<char> {
         let s = try!(self.read_str());
         if s.len() != 1 { return Err(ParseError); }
-        Ok(s[0] as char)
+        Ok(s.as_slice()[0] as char)
     }
 
-    fn read_str(&mut self) -> DecodeResult<~str> {
+    fn read_str(&mut self) -> DecodeResult<StrBuf> {
         match mem::replace(&mut self.value, NoValue) {
-            String(s) => Ok(s),
+            String(s) => Ok(s.to_strbuf()),
             _ => Err(ParseError)
         }
     }
@@ -994,7 +994,7 @@ impl serialize::Decoder<Error> for Decoder {
         // XXX: assert!(self.value == NoValue);
         let res = match self.state {
             Tab(ref mut tab) => {
-                match tab.pop(&name.to_owned()) { // XXX: pop_equiv(...) or find_equiv_mut...
+                match tab.pop(&name.to_strbuf()) { // XXX: pop_equiv(...) or find_equiv_mut...
                     None => f(&mut Decoder::new(NoValue)), // XXX: NoValue means "nil" here
                     Some(val) => f(&mut Decoder::new(val))
                 }
@@ -1004,7 +1004,7 @@ impl serialize::Decoder<Error> for Decoder {
 
         match res {
             Ok(val) => Ok(val),
-            Err(ParseError) => Err(ParseErrorInField(name.to_owned())),
+            Err(ParseError) => Err(ParseErrorInField(name.to_strbuf())),
             Err(e) => Err(e)
         }
     }
