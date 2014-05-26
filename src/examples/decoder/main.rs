@@ -5,7 +5,7 @@ use std::os;
 
 #[deriving(Show,Decodable)]
 struct Config {
-    host: StrBuf,
+    host: String,
     port: Option<uint>,
     ids: ~[uint],
     products: ~[Product]
@@ -14,7 +14,7 @@ struct Config {
 #[deriving(Show,Decodable)]
 struct Product {
     id: uint,
-    name: StrBuf
+    name: String
 }
 
 fn main() {

@@ -19,14 +19,14 @@ use std::io::fs::walk_dir;
 use std::io::File;
 use std::fmt::Show;
 
-fn to_json_type(typ: StrBuf, val: Json) -> Json {
+fn to_json_type(typ: String, val: Json) -> Json {
     let mut tree = box TreeMap::new();
     tree.insert("type".to_strbuf(), String(typ));
     tree.insert("value".to_strbuf(), val);
     Object(tree)
 }
 
-fn format_float(f: f64) -> StrBuf {
+fn format_float(f: f64) -> String {
     let str = format!("{:.15f}", f);
     let str = str.as_slice();
     let str = str.trim_right_chars('0');
@@ -59,7 +59,7 @@ fn to_json(v: &toml::Value) -> Json {
         &toml::PosInt(n) => { to_json_type(to_str("integer"), String(to_str(n))) }
         &toml::NegInt(n) => { to_json_type(to_str("integer"), String(format_strbuf!("-{}", n))) }
         &toml::Float(n) => { to_json_type(to_str("float"), String(format_float(n))) }
-        &toml::String(ref str) => { to_json_type(to_str("string"), String(StrBuf::from_str(str.as_slice()))) }
+        &toml::String(ref str) => { to_json_type(to_str("string"), String(String::from_str(str.as_slice()))) }
         &toml::Datetime(y,m,d,h,mi,s) => {
             let s = format!("{:04u}-{:02u}-{:02u}T{:02u}:{:02u}:{:02u}Z", y,m,d,h,mi,s);
             to_json_type(to_str("datetime"), String(to_str(s)))
@@ -73,8 +73,7 @@ fn toml_test_runner() {
     println!("{:s}", json.to_pretty_str());
 }
 
-fn independent_test_runner(path: ~str) {
-  let path = Path::new(path);
+fn independent_test_runner(path: Path) {
   let mut tests: int = 0;
   let mut failed: int = 0;
   let mut passed: int = 0;
@@ -141,14 +140,14 @@ fn independent_test_runner(path: ~str) {
   if failed > 0 { fail!(); }
 }
 
-fn to_str<T: Show>(thing: T) -> StrBuf {
+fn to_str<T: Show>(thing: T) -> String {
     format_strbuf!("{}", thing)
 }
 
 fn main() {
     match os::args().len() {
       1 => toml_test_runner(),
-      2 => independent_test_runner(os::args().get(1).clone()),
+      2 => independent_test_runner(Path::new(os::args().get(1).clone())),
       _ => fail!("USAGE: {:s} [path]", os::args().get(0).as_slice()),
     }
 }
