@@ -317,14 +317,14 @@ impl<'a> ValueBuilder<'a> {
             if !ok { return false }
             Table(false, table)
         };
-        let ok = ht.insert(head.to_strbuf(), value);
+        let ok = ht.insert(head.to_str(), value);
         assert!(ok);
         return ok;
     }
 
     fn insert_value(path: &[String], key: &str, ht: &mut Box<HashMap<String, Value>>, val: Value) -> bool {
         if path.is_empty() {
-            return ht.insert(key.to_strbuf(), val);
+            return ht.insert(key.to_str(), val);
         }
         else {
             let head = path.head().unwrap(); // TODO: optimize
@@ -355,7 +355,7 @@ impl<'a> ValueBuilder<'a> {
 
 impl<'a> Visitor for ValueBuilder<'a> {
     fn section(&mut self, name: String, is_array: bool) -> bool {
-        self.current_path = name.as_slice().split('.').map(|i| i.to_strbuf()).collect();
+        self.current_path = name.as_slice().split('.').map(|i| i.to_str()).collect();
 
         let ok = ValueBuilder::recursive_create_tree(self.current_path.as_slice(), self.root, is_array);
         if !ok {
@@ -367,7 +367,7 @@ impl<'a> Visitor for ValueBuilder<'a> {
     fn pair(&mut self, key: String, val: Value) -> bool {
         let ok = ValueBuilder::insert_value(self.current_path.as_slice(), key.as_slice(), self.root, val);
         if !ok {
-            debug!("Duplicate key: {} in path {:?}", key, self.current_path);
+            debug!("Duplicate key: {} in path {}", key, self.current_path);
         }
         return ok;
     }
@@ -952,7 +952,7 @@ impl serialize::Decoder<Error> for Decoder {
 
     fn read_str(&mut self) -> DecodeResult<String> {
         match mem::replace(&mut self.value, NoValue) {
-            String(s) => Ok(s.to_strbuf()),
+            String(s) => Ok(s.to_str()),
             _ => Err(ParseError)
         }
     }
@@ -994,7 +994,7 @@ impl serialize::Decoder<Error> for Decoder {
         // XXX: assert!(self.value == NoValue);
         let res = match self.state {
             Tab(ref mut tab) => {
-                match tab.pop(&name.to_strbuf()) { // XXX: pop_equiv(...) or find_equiv_mut...
+                match tab.pop(&name.to_str()) { // XXX: pop_equiv(...) or find_equiv_mut...
                     None => f(&mut Decoder::new(NoValue)), // XXX: NoValue means "nil" here
                     Some(val) => f(&mut Decoder::new(val))
                 }
@@ -1004,7 +1004,7 @@ impl serialize::Decoder<Error> for Decoder {
 
         match res {
             Ok(val) => Ok(val),
-            Err(ParseError) => Err(ParseErrorInField(name.to_strbuf())),
+            Err(ParseError) => Err(ParseErrorInField(name.to_str())),
             Err(e) => Err(e)
         }
     }
