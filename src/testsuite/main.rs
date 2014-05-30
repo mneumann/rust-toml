@@ -21,8 +21,8 @@ use std::fmt::Show;
 
 fn to_json_type(typ: String, val: Json) -> Json {
     let mut tree = box TreeMap::new();
-    tree.insert("type".to_strbuf(), String(typ));
-    tree.insert("value".to_strbuf(), val);
+    tree.insert("type".to_str(), String(typ));
+    tree.insert("value".to_str(), val);
     Object(tree)
 }
 
@@ -31,7 +31,7 @@ fn format_float(f: f64) -> String {
     let str = str.as_slice();
     let str = str.trim_right_chars('0');
     if str.ends_with(".") {
-        format_strbuf!("{}0", str)
+        format!("{}0", str)
     } else {
         to_str(str)
     }
@@ -57,7 +57,7 @@ fn to_json(v: &toml::Value) -> Json {
         &toml::Boolean(true) => { to_json_type(to_str("bool"), String(to_str("true"))) }
         &toml::Boolean(false) => { to_json_type(to_str("bool"), String(to_str("false"))) }
         &toml::PosInt(n) => { to_json_type(to_str("integer"), String(to_str(n))) }
-        &toml::NegInt(n) => { to_json_type(to_str("integer"), String(format_strbuf!("-{}", n))) }
+        &toml::NegInt(n) => { to_json_type(to_str("integer"), String(format!("-{}", n))) }
         &toml::Float(n) => { to_json_type(to_str("float"), String(format_float(n))) }
         &toml::String(ref str) => { to_json_type(to_str("string"), String(String::from_str(str.as_slice()))) }
         &toml::Datetime(y,m,d,h,mi,s) => {
@@ -141,7 +141,7 @@ fn independent_test_runner(path: Path) {
 }
 
 fn to_str<T: Show>(thing: T) -> String {
-    format_strbuf!("{}", thing)
+    format!("{}", thing)
 }
 
 fn main() {
