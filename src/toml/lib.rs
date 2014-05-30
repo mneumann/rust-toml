@@ -1,8 +1,8 @@
-#[crate_id = "github.com/mneumann/rust-toml#toml:0.1"];
-#[desc = "A TOML configuration file parser for Rust"];
-#[license = "MIT"];
-#[crate_type = "lib"];
-#[feature(phase)];
+#![crate_id = "github.com/mneumann/rust-toml#toml:0.1"]
+#![desc = "A TOML configuration file parser for Rust"]
+#![license = "MIT"]
+#![crate_type = "lib"]
+#![feature(phase)]
 
 /// A TOML [1] configuration file parser
 ///
@@ -35,28 +35,28 @@ pub enum Value {
     PosInt(u64),
     NegInt(u64),
     Float(f64),
-    String(~str),
+    String(String),
     Datetime(u16,u8,u8,u8,u8,u8),
-    Array(~[Value]),
-    TableArray(~[Value]),
-    Table(bool, ~HashMap<~str, Value>) // bool=true iff section already defiend
+    Array(Vec<Value>),
+    TableArray(Vec<Value>),
+    Table(bool, Box<HashMap<String, Value>>) // bool=true iff section already defiend
 }
 
 impl fmt::Show for Value {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            NoValue       => write!(fmt.buf, "NoValue"),
-            Boolean(b)    => write!(fmt.buf, "Boolean({:b})", b),
-            PosInt(n)     => write!(fmt.buf, "PosInt({:u})", n),
-            NegInt(n)     => write!(fmt.buf, "NegInt({:u})", n),
-            Float(f)      => write!(fmt.buf, "Float({:f})", f),
-            String(ref s) => write!(fmt.buf, "String({:s})", s.as_slice()),
+            NoValue       => write!(fmt, "NoValue"),
+            Boolean(b)    => write!(fmt, "Boolean({:b})", b),
+            PosInt(n)     => write!(fmt, "PosInt({:u})", n),
+            NegInt(n)     => write!(fmt, "NegInt({:u})", n),
+            Float(f)      => write!(fmt, "Float({:f})", f),
+            String(ref s) => write!(fmt, "String({:s})", s.as_slice()),
             Datetime(a,b,c,d,e,f) =>  {
-                write!(fmt.buf, "Datetime({},{},{},{},{},{})", a,b,c,d,e,f)
+                write!(fmt, "Datetime({},{},{},{},{},{})", a,b,c,d,e,f)
             }
-            Array(ref arr) => write!(fmt.buf, "Array({})", arr.as_slice()),
-            TableArray(ref arr) => write!(fmt.buf, "TableArray({})", arr.as_slice()),
-            Table(_, ref hm) => write!(fmt.buf, "Table({})", **hm)
+            Array(ref arr) => write!(fmt, "Array({})", arr.as_slice()),
+            TableArray(ref arr) => write!(fmt, "TableArray({})", arr.as_slice()),
+            Table(_, ref hm) => write!(fmt, "Table({})", **hm)
         }
     }
 }
@@ -66,11 +66,15 @@ impl fmt::Show for Value {
 /// Possible errors returned from the parse functions
 #[deriving(Show,Clone,Eq)]
 pub enum Error {
-    /// An parser error occurred during parsing
+    /// A parser error occurred during parsing
     ParseError,
+    /// A parser error with some human-readable context
+    ParseErrorInField(String),
     /// An I/O error occurred during parsing
     IOError(IoError)
 }
+
+pub type DecodeResult<T> = Result<T, Error>;
 
 //
 // This function determines if v1 and v2 have compatible ("equivalent") types
@@ -104,7 +108,7 @@ impl<'a> LookupValue<'a> for uint {
     fn lookup_in(&self, value: &'a Value) -> Option<&'a Value> {
         match value {
            &TableArray(ref tableary) => {
-               tableary.get(*self)
+               tableary.as_slice().get(*self)
            }
            _ => { None }
         }
@@ -163,28 +167,28 @@ impl Value {
         }
     }
 
-    pub fn get_str<'a>(&'a self) -> Option<&'a ~str> {
+    pub fn get_str<'a>(&'a self) -> Option<&'a String> {
         match self {
             &String(ref str) => { Some(str) }
             _ => { None }
         }
     }
 
-    pub fn get_vec<'a>(&'a self) -> Option<&'a ~[Value]> {
+    pub fn get_vec<'a>(&'a self) -> Option<&'a Vec<Value>> {
         match self {
             &Array(ref vec) => { Some(vec) }
             _ => { None }
         }
     }
 
-    pub fn get_table<'a>(&'a self) -> Option<&'a ~HashMap<~str, Value>> {
+    pub fn get_table<'a>(&'a self) -> Option<&'a Box<HashMap<String, Value>>> {
         match self {
             &Table(_, ref table) => { Some(table) }
             _ => { None }
         }
     }
 
-    pub fn get_table_array<'a>(&'a self) -> Option<&'a ~[Value]> {
+    pub fn get_table_array<'a>(&'a self) -> Option<&'a Vec<Value>> {
         match self {
             &TableArray(ref vec) => { Some(vec) }
             _ => { None }
@@ -198,7 +202,7 @@ impl Value {
     pub fn lookup_vec<'a>(&'a self, idx: uint) -> Option<&'a Value> {
         match self {
             &Array(ref ary) => {
-                ary.get(idx)
+                ary.as_slice().get(idx)
             }
             _ => { None }
         }
@@ -225,21 +229,21 @@ impl Value {
 }
 
 trait Visitor {
-    fn section(&mut self, name: ~str, is_array: bool) -> bool;
-    fn pair(&mut self, key: ~str, val: Value) -> bool;
+    fn section(&mut self, name: String, is_array: bool) -> bool;
+    fn pair(&mut self, key: String, val: Value) -> bool;
 }
 
 struct ValueBuilder<'a> {
-    root: &'a mut ~HashMap<~str, Value>,
-    current_path: ~[~str]
+    root: &'a mut Box<HashMap<String, Value>>,
+    current_path: Vec<String>
 }
 
 impl<'a> ValueBuilder<'a> {
-    fn new(root: &'a mut ~HashMap<~str, Value>) -> ValueBuilder<'a> {
-        ValueBuilder { root: root, current_path: ~[] }
+    fn new(root: &'a mut Box<HashMap<String, Value>>) -> ValueBuilder<'a> {
+        ValueBuilder { root: root, current_path: vec!() }
     }
 
-    fn recursive_create_tree(path: &[~str], ht: &mut ~HashMap<~str, Value>, is_array: bool) -> bool {
+    fn recursive_create_tree(path: &[String], ht: &mut Box<HashMap<String, Value>>, is_array: bool) -> bool {
         assert!(path.len() > 0);
 
         if path.head().unwrap().is_empty() { return false } // don't allow empty keys
@@ -254,7 +258,7 @@ impl<'a> ValueBuilder<'a> {
 
                 if term_rec { // terminal recursion
                     if is_array {
-                        table_array.push(Table(true, ~HashMap::new()));
+                        table_array.push(Table(true, box HashMap::new()));
                         return true;
                     }
                     else {
@@ -264,8 +268,8 @@ impl<'a> ValueBuilder<'a> {
                 }
                 else {
                     //let last_table = &mut ;
-                    match table_array[table_array.len()-1] {
-                        Table(_, ref mut hmap) => {
+                    match table_array.mut_last().unwrap() {
+                        &Table(_, ref mut hmap) => {
                             return ValueBuilder::recursive_create_tree(path.tail(), hmap, is_array);
                         }
                         _ => {
@@ -304,23 +308,23 @@ impl<'a> ValueBuilder<'a> {
 
         let value =
         if term_rec { // terminal recursion
-            if is_array { TableArray(~[Table(false, ~HashMap::new())]) }
-            else { Table(true, ~HashMap::new()) }
+            if is_array { TableArray(vec!(Table(false, box HashMap::new()))) }
+            else { Table(true, box HashMap::new()) }
         }
         else {
-            let mut table = ~HashMap::new();
+            let mut table = box HashMap::new();
             let ok = ValueBuilder::recursive_create_tree(path.tail(), &mut table, is_array);
             if !ok { return false }
             Table(false, table)
         };
-        let ok = ht.insert(head.to_owned(), value);
+        let ok = ht.insert(head.to_str(), value);
         assert!(ok);
         return ok;
     }
 
-    fn insert_value(path: &[~str], key: &str, ht: &mut ~HashMap<~str, Value>, val: Value) -> bool {
+    fn insert_value(path: &[String], key: &str, ht: &mut Box<HashMap<String, Value>>, val: Value) -> bool {
         if path.is_empty() {
-            return ht.insert(key.to_owned(), val);
+            return ht.insert(key.to_str(), val);
         }
         else {
             let head = path.head().unwrap(); // TODO: optimize
@@ -330,8 +334,8 @@ impl<'a> ValueBuilder<'a> {
                 }
                 Some(&TableArray(ref mut table_array)) => {
                     assert!(table_array.len() > 0);
-                    match table_array[table_array.len()-1] {
-                        Table(_, ref mut hmap) => {
+                    match table_array.mut_last().unwrap() {
+                        &Table(_, ref mut hmap) => {
                             return ValueBuilder::insert_value(path.tail(), key, hmap, val);
                         }
                         _ => {
@@ -350,8 +354,8 @@ impl<'a> ValueBuilder<'a> {
 }
 
 impl<'a> Visitor for ValueBuilder<'a> {
-    fn section(&mut self, name: ~str, is_array: bool) -> bool {
-        self.current_path = name.split_str(".").map(|i| i.to_owned()).collect();
+    fn section(&mut self, name: String, is_array: bool) -> bool {
+        self.current_path = name.as_slice().split('.').map(|i| i.to_str()).collect();
 
         let ok = ValueBuilder::recursive_create_tree(self.current_path.as_slice(), self.root, is_array);
         if !ok {
@@ -360,10 +364,10 @@ impl<'a> Visitor for ValueBuilder<'a> {
         return ok;
     }
 
-    fn pair(&mut self, key: ~str, val: Value) -> bool {
-        let ok = ValueBuilder::insert_value(self.current_path.as_slice(), key, self.root, val);
+    fn pair(&mut self, key: String, val: Value) -> bool {
+        let ok = ValueBuilder::insert_value(self.current_path.as_slice(), key.as_slice(), self.root, val);
         if !ok {
-            debug!("Duplicate key: {} in path {:?}", key, self.current_path);
+            debug!("Duplicate key: {} in path {}", key, self.current_path);
         }
         return ok;
     }
@@ -611,7 +615,7 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
             }
             '[' => {
                 self.advance();
-                let mut arr = ~[];
+                let mut arr = vec!();
                 loop {
                     match self.parse_value() {
                         NoValue => {
@@ -619,7 +623,7 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
                         }
                         val => {
                             if !arr.is_empty() {
-                                if !have_equiv_types(arr.head().unwrap(), &val) {
+                                if !have_equiv_types(arr.as_slice().head().unwrap(), &val) {
                                     debug!("Incompatible element types in array");
                                     return NoValue;
                                 }
@@ -648,10 +652,10 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
         }
     }
 
-    fn parse_string(&mut self) -> Option<~str> {
+    fn parse_string(&mut self) -> Option<String> {
         if !self.advance_if('"') { return None }
 
-        let mut str = ~"";
+        let mut str = String::new();
         loop {
             if self.ch().is_none() { return None }
             match self.ch().unwrap() {
@@ -705,8 +709,8 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
         }
     }
 
-    fn read_token(&mut self, f: |char| -> bool) -> ~str {
-        let mut token = ~"";
+    fn read_token(&mut self, f: |char| -> bool) -> String {
+        let mut token = String::new();
         loop {
             match self.ch() {
                 Some(ch) => {
@@ -721,7 +725,7 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
         return token;
     }
 
-    fn parse_section_identifier(&mut self) -> ~str {
+    fn parse_section_identifier(&mut self) -> String {
         self.read_token(|ch| {
             match ch {
                 '\t' | '\n' | '\r' | '[' | ']' => false,
@@ -851,7 +855,7 @@ pub fn parse_from_file(name: &str) -> Result<Value,Error> {
 }
 
 pub fn parse_from_buffer<BUF: Buffer>(rd: &mut BUF) -> Result<Value,Error> {
-    let mut ht = ~HashMap::<~str, Value>::new();
+    let mut ht = box HashMap::<String, Value>::new();
     {
         let mut builder = ValueBuilder::new(&mut ht);
         let mut parser = Parser::new(rd);
@@ -875,155 +879,162 @@ pub fn parse_from_bytes(bytes: &[u8]) -> Result<Value,Error> {
 enum State {
     No,
     Arr(MoveItems<Value>),
-    Tab(~HashMap<~str, Value>),
-    Map(MoveEntries<~str, Value>)
+    Tab(Box<HashMap<String, Value>>),
+    Map(MoveEntries<String, Value>)
 }
 
 pub struct Decoder {
-    priv value: Value,
-    priv state: State
+    value: Value,
+    state: State,
+    field: Option<String>
 }
 
 impl Decoder {
     pub fn new(value: Value) -> Decoder {
-        Decoder {value: value, state: No}
+        Decoder { value: value, state: No, field: None }
     }
-    pub fn new_state(state: State) -> Decoder {
-        Decoder {value: NoValue, state: state}
+    fn new_state(state: State) -> Decoder {
+        Decoder { value: NoValue, state: state, field: None }
     }
 }
 
-impl serialize::Decoder for Decoder {
-    fn read_nil(&mut self) -> () { fail!() }
+impl serialize::Decoder<Error> for Decoder {
+    fn read_nil(&mut self) -> DecodeResult<()> { Err(ParseError) }
 
-    fn read_u64(&mut self) -> u64 {
+    fn read_u64(&mut self) -> DecodeResult<u64> {
         match self.value {
-            PosInt(v) => v,
-            _ => fail!()
+            PosInt(v) => Ok(v),
+            _ => Err(ParseError)
         }
     }
 
-    fn read_uint(&mut self) -> uint { self.read_u64().to_uint().unwrap() }
-    fn read_u32(&mut self) -> u32 { self.read_u64().to_u32().unwrap() }
-    fn read_u16(&mut self) -> u16 { self.read_u64().to_u16().unwrap() }
-    fn read_u8(&mut self) -> u8 { self.read_u64().to_u8().unwrap() }
+    fn read_uint(&mut self) -> DecodeResult<uint> { self.read_u64().and_then(|x| x.to_uint().map_or(Err(ParseError), |x| Ok(x))) }
+    fn read_u32(&mut self) -> DecodeResult<u32> { self.read_u64().and_then(|x| x.to_u32().map_or(Err(ParseError), |x| Ok(x))) }
+    fn read_u16(&mut self) -> DecodeResult<u16> { self.read_u64().and_then(|x| x.to_u16().map_or(Err(ParseError), |x| Ok(x))) }
+    fn read_u8(&mut self) -> DecodeResult<u8> { self.read_u64().and_then(|x| x.to_u8().map_or(Err(ParseError), |x| Ok(x))) }
 
-    fn read_i64(&mut self) -> i64 {
+    fn read_i64(&mut self) -> DecodeResult<i64> {
         match self.value {
-            PosInt(v) => v.to_i64().unwrap(),
-            NegInt(v) => -(v.to_i64().unwrap()),
-            _ => fail!()
+            PosInt(v) => v.to_i64().map_or(Err(ParseError), |v| Ok(v)),
+            NegInt(v) => v.to_i64().map_or(Err(ParseError), |v| Ok(-v)),
+            _ => Err(ParseError)
         }
     }
 
-    fn read_int(&mut self) -> int { self.read_i64().to_int().unwrap() }
-    fn read_i32(&mut self) -> i32 { self.read_i64().to_i32().unwrap() }
-    fn read_i16(&mut self) -> i16 { self.read_i64().to_i16().unwrap() }
-    fn read_i8(&mut self) -> i8 { self.read_i64().to_i8().unwrap() }
+    fn read_int(&mut self) -> DecodeResult<int> { self.read_i64().and_then(|x| x.to_int().map_or(Err(ParseError), |x| Ok(x))) }
+    fn read_i32(&mut self) -> DecodeResult<i32> { self.read_i64().and_then(|x| x.to_i32().map_or(Err(ParseError), |x| Ok(x))) }
+    fn read_i16(&mut self) -> DecodeResult<i16> { self.read_i64().and_then(|x| x.to_i16().map_or(Err(ParseError), |x| Ok(x))) }
+    fn read_i8(&mut self) -> DecodeResult<i8> { self.read_i64().and_then(|x| x.to_i8().map_or(Err(ParseError), |x| Ok(x))) }
 
-    fn read_bool(&mut self) -> bool {
+    fn read_bool(&mut self) -> DecodeResult<bool> {
         match self.value {
-            Boolean(b) => b,
-            _ => fail!()
+            Boolean(b) => Ok(b),
+            _ => Err(ParseError)
         }
     }
 
-    fn read_f64(&mut self) -> f64 {
+    fn read_f64(&mut self) -> DecodeResult<f64> {
          match self.value {
-            Float(f) => f,
-            _ => fail!()
+            Float(f) => Ok(f),
+            _ => Err(ParseError)
         }
     }
 
-    fn read_f32(&mut self) -> f32 {
-        self.read_f64().to_f32().unwrap()
+    fn read_f32(&mut self) -> DecodeResult<f32> {
+        self.read_f64().and_then(|x| x.to_f32().map_or(Err(ParseError), |x| Ok(x)))
     }
 
-    fn read_char(&mut self) -> char {
-        let s = self.read_str();
-        if s.len() != 1 { fail!("no character") }
-        s[0] as char
+    fn read_char(&mut self) -> DecodeResult<char> {
+        let s = try!(self.read_str());
+        if s.len() != 1 { return Err(ParseError); }
+        Ok(s.as_slice()[0] as char)
     }
 
-    fn read_str(&mut self) -> ~str {
+    fn read_str(&mut self) -> DecodeResult<String> {
         match mem::replace(&mut self.value, NoValue) {
-            String(s) => s,
-            _ => fail!()
+            String(s) => Ok(s.to_str()),
+            _ => Err(ParseError)
         }
     }
 
-    fn read_enum<T>(&mut self, _name: &str, _f: |&mut Decoder| -> T) -> T { fail!() }
-    fn read_enum_variant<T>(&mut self, _names: &[&str], _f: |&mut Decoder, uint| -> T) -> T { fail!() }
-    fn read_enum_variant_arg<T>(&mut self, _idx: uint, _f: |&mut Decoder| -> T) -> T { fail!() }
+    fn read_enum<T>(&mut self, _name: &str, _f: |&mut Decoder| -> DecodeResult<T>) -> DecodeResult<T> { Err(ParseError) }
+    fn read_enum_variant<T>(&mut self, _names: &[&str], _f: |&mut Decoder, uint| -> DecodeResult<T>) -> DecodeResult<T> { Err(ParseError) }
+    fn read_enum_variant_arg<T>(&mut self, _idx: uint, _f: |&mut Decoder| -> DecodeResult<T>) -> DecodeResult<T> { Err(ParseError) }
 
-    fn read_seq<T>(&mut self, f: |&mut Decoder, uint| -> T) -> T {
+    fn read_seq<T>(&mut self, f: |&mut Decoder, uint| -> DecodeResult<T>) -> DecodeResult<T> {
         match mem::replace(&mut self.value, NoValue) {
             Array(a) | TableArray(a) => {
                 let l = a.len();
                 f(&mut Decoder::new_state(Arr(a.move_iter())), l)
             }
-            _ => fail!()
+            _ => Err(ParseError)
         }
     }
 
-    fn read_seq_elt<T>(&mut self, _idx: uint, f: |&mut Decoder| -> T) -> T {
+    fn read_seq_elt<T>(&mut self, _idx: uint, f: |&mut Decoder| -> DecodeResult<T>) -> DecodeResult<T> {
         // XXX: assert(idx)
         // XXX: assert!(self.value == NoValue);
         // XXX: self.value = ...
         match self.state {
             Arr(ref mut a) => f(&mut Decoder::new(a.next().unwrap())),
-            _ => fail!()
+            _ => Err(ParseError)
         }
     }
 
-    fn read_struct<T>(&mut self, _name: &str, _len: uint, f: |&mut Decoder| -> T) -> T {
+    fn read_struct<T>(&mut self, _name: &str, _len: uint, f: |&mut Decoder| -> DecodeResult<T>) -> DecodeResult<T> {
         match mem::replace(&mut self.value, NoValue) {
             Table(_, hm) => {
                 f(&mut Decoder::new_state(Tab(hm)))
             }
-            _ => fail!()
+            _ => Err(ParseError)
         }
     }
 
-    fn read_struct_field<T>(&mut self, name: &str, _idx: uint, f: |&mut Decoder| -> T) -> T {
+    fn read_struct_field<T>(&mut self, name: &str, _idx: uint, f: |&mut Decoder| -> DecodeResult<T>) -> DecodeResult<T> {
         // XXX: assert!(self.value == NoValue);
-        match self.state {
+        let res = match self.state {
             Tab(ref mut tab) => {
-                match tab.pop(&name.to_owned()) { // XXX: pop_equiv(...) or find_equiv_mut...
+                match tab.pop(&name.to_str()) { // XXX: pop_equiv(...) or find_equiv_mut...
                     None => f(&mut Decoder::new(NoValue)), // XXX: NoValue means "nil" here
                     Some(val) => f(&mut Decoder::new(val))
                 }
             }
-            _ => fail!()
+            _ => Err(ParseError)
+        };
+
+        match res {
+            Ok(val) => Ok(val),
+            Err(ParseError) => Err(ParseErrorInField(name.to_str())),
+            Err(e) => Err(e)
         }
     }
 
-    fn read_option<T>(&mut self, f: |&mut Decoder, bool| -> T) -> T {
+    fn read_option<T>(&mut self, f: |&mut Decoder, bool| -> DecodeResult<T>) -> DecodeResult<T> {
         match self.value {
             NoValue => f(self, false), // XXX
             _ => f(self, true)
         }
     }
 
-    fn read_map<T>(&mut self, f: |&mut Decoder, uint| -> T) -> T {
+    fn read_map<T>(&mut self, f: |&mut Decoder, uint| -> DecodeResult<T>) -> DecodeResult<T> {
         match mem::replace(&mut self.value, NoValue) {
             Table(_, hm) => {
                 let len = hm.len();
                 f(&mut Decoder::new_state(Map(hm.move_iter())), len)
             }
-            _ => fail!()
+            _ => Err(ParseError)
         }
     }
 
-    fn read_map_elt_key<T>(&mut self, _idx: uint, f: |&mut Decoder| -> T) -> T {
+    fn read_map_elt_key<T>(&mut self, _idx: uint, f: |&mut Decoder| -> DecodeResult<T>) -> DecodeResult<T> {
         let (k, v) = match self.state {
             Map(ref mut map) => {
                 match map.next() {
-                    None => fail!(),
+                    None => return Err(ParseError),
                     Some((k, v)) => (k, v)
                 }
             }
-            _ => fail!()
+            _ => return Err(ParseError)
         };
         self.value = String(k);
         let res = f(self);
@@ -1031,14 +1042,14 @@ impl serialize::Decoder for Decoder {
         res
     }
 
-    fn read_map_elt_val<T>(&mut self, _idx: uint, f: |&mut Decoder| -> T) -> T {
+    fn read_map_elt_val<T>(&mut self, _idx: uint, f: |&mut Decoder| -> DecodeResult<T>) -> DecodeResult<T> {
         f(self)
     }
 
     fn read_enum_struct_variant<T>(&mut self,
                                    names: &[&str],
-                                   f: |&mut Decoder, uint| -> T)
-                                   -> T {
+                                   f: |&mut Decoder, uint| -> DecodeResult<T>)
+                                   -> DecodeResult<T> {
         self.read_enum_variant(names, f)
     }
 
@@ -1046,35 +1057,35 @@ impl serialize::Decoder for Decoder {
     fn read_enum_struct_variant_field<T>(&mut self,
                                          _name: &str,
                                          idx: uint,
-                                         f: |&mut Decoder| -> T)
-                                         -> T {
+                                         f: |&mut Decoder| -> DecodeResult<T>)
+                                         -> DecodeResult<T> {
         self.read_enum_variant_arg(idx, f)
     }
 
-    fn read_tuple<T>(&mut self, f: |&mut Decoder, uint| -> T) -> T {
+    fn read_tuple<T>(&mut self, f: |&mut Decoder, uint| -> DecodeResult<T>) -> DecodeResult<T> {
         self.read_seq(f)
     }
 
-    fn read_tuple_arg<T>(&mut self, idx: uint, f: |&mut Decoder| -> T) -> T {
+    fn read_tuple_arg<T>(&mut self, idx: uint, f: |&mut Decoder| -> DecodeResult<T>) -> DecodeResult<T> {
         self.read_seq_elt(idx, f)
     }
 
     fn read_tuple_struct<T>(&mut self,
                             _name: &str,
-                            f: |&mut Decoder, uint| -> T)
-                            -> T {
+                            f: |&mut Decoder, uint| -> DecodeResult<T>)
+                            -> DecodeResult<T> {
         self.read_tuple(f)
     }
 
     fn read_tuple_struct_arg<T>(&mut self,
                                 idx: uint,
-                                f: |&mut Decoder| -> T)
-                                -> T {
+                                f: |&mut Decoder| -> DecodeResult<T>)
+                                -> DecodeResult<T> {
         self.read_tuple_arg(idx, f)
     }
 }
 
-pub fn from_toml<T: Decodable<Decoder>>(value: Value) -> T {
+pub fn from_toml<T: Decodable<Decoder, Error>>(value: Value) -> DecodeResult<T> {
     let mut decoder = Decoder::new(value);
     Decodable::decode(&mut decoder)
 }

@@ -5,7 +5,7 @@ use std::os;
 
 #[deriving(Show,Decodable)]
 struct Config {
-    host: ~str,
+    host: String,
     port: Option<uint>,
     ids: ~[uint],
     products: ~[Product]
@@ -14,7 +14,7 @@ struct Config {
 #[deriving(Show,Decodable)]
 struct Product {
     id: uint,
-    name: ~str
+    name: String
 }
 
 fn main() {
@@ -35,15 +35,20 @@ fn main() {
             println!("parse error");
             os::set_exit_status(1);
             return;
-        }
+        },
+        Err(toml::ParseErrorInField(field)) => {
+            println!("parse error in field `{}`", field);
+            os::set_exit_status(1);
+            return;
+        },
         Err(toml::IOError(e)) => {
             println!("I/O error: {}", e);
             os::set_exit_status(1);
             return;
         }
     };
-    println!("{:?}", value);
+    println!("{}", value);
 
-    let cfg: Config = toml::from_toml(value);
+    let cfg: Config = toml::from_toml(value).unwrap();
     println!("{:s}", cfg.to_str());
 }
