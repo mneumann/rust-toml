@@ -1,8 +1,8 @@
-#[crate_id = "github.com/mneumann/rust-toml#toml:0.1"];
-#[desc = "A TOML configuration file parser for Rust"];
-#[license = "MIT"];
-#[crate_type = "lib"];
-#[feature(phase)];
+#![crate_id = "github.com/mneumann/rust-toml#toml:0.1"]
+#![desc = "A TOML configuration file parser for Rust"]
+#![license = "MIT"]
+#![crate_type = "lib"]
+#![feature(phase)]
 
 /// A TOML [1] configuration file parser
 ///
@@ -18,7 +18,7 @@ use std::char;
 use std::mem;
 
 use collections::hashmap::{HashMap,MoveEntries};
-use std::vec::MoveItems;
+use std::slice::MoveItems;
 
 use std::io::{File,IoError,IoResult,EndOfFile};
 use std::io::{Buffer,BufReader,BufferedReader};
@@ -71,6 +71,8 @@ pub enum Error {
     /// An I/O error occurred during parsing
     IOError(IoError)
 }
+
+pub type DecodeResult<T> = Result<T, Error>;
 
 //
 // This function determines if v1 and v2 have compatible ("equivalent") types
@@ -880,112 +882,112 @@ enum State {
 }
 
 pub struct Decoder {
-    priv value: Value,
-    priv state: State
+    value: Value,
+    state: State
 }
 
 impl Decoder {
     pub fn new(value: Value) -> Decoder {
         Decoder {value: value, state: No}
     }
-    pub fn new_state(state: State) -> Decoder {
+    fn new_state(state: State) -> Decoder {
         Decoder {value: NoValue, state: state}
     }
 }
 
-impl serialize::Decoder for Decoder {
-    fn read_nil(&mut self) -> () { fail!() }
+impl serialize::Decoder<Error> for Decoder {
+    fn read_nil(&mut self) -> DecodeResult<()> { Err(ParseError) }
 
-    fn read_u64(&mut self) -> u64 {
+    fn read_u64(&mut self) -> DecodeResult<u64> {
         match self.value {
-            PosInt(v) => v,
-            _ => fail!()
+            PosInt(v) => Ok(v),
+            _ => Err(ParseError)
         }
     }
 
-    fn read_uint(&mut self) -> uint { self.read_u64().to_uint().unwrap() }
-    fn read_u32(&mut self) -> u32 { self.read_u64().to_u32().unwrap() }
-    fn read_u16(&mut self) -> u16 { self.read_u64().to_u16().unwrap() }
-    fn read_u8(&mut self) -> u8 { self.read_u64().to_u8().unwrap() }
+    fn read_uint(&mut self) -> DecodeResult<uint> { self.read_u64().and_then(|x| x.to_uint().map_or(Err(ParseError), |x| Ok(x))) }
+    fn read_u32(&mut self) -> DecodeResult<u32> { self.read_u64().and_then(|x| x.to_u32().map_or(Err(ParseError), |x| Ok(x))) }
+    fn read_u16(&mut self) -> DecodeResult<u16> { self.read_u64().and_then(|x| x.to_u16().map_or(Err(ParseError), |x| Ok(x))) }
+    fn read_u8(&mut self) -> DecodeResult<u8> { self.read_u64().and_then(|x| x.to_u8().map_or(Err(ParseError), |x| Ok(x))) }
 
-    fn read_i64(&mut self) -> i64 {
+    fn read_i64(&mut self) -> DecodeResult<i64> {
         match self.value {
-            PosInt(v) => v.to_i64().unwrap(),
-            NegInt(v) => -(v.to_i64().unwrap()),
-            _ => fail!()
+            PosInt(v) => v.to_i64().map_or(Err(ParseError), |v| Ok(v)),
+            NegInt(v) => v.to_i64().map_or(Err(ParseError), |v| Ok(-v)),
+            _ => Err(ParseError)
         }
     }
 
-    fn read_int(&mut self) -> int { self.read_i64().to_int().unwrap() }
-    fn read_i32(&mut self) -> i32 { self.read_i64().to_i32().unwrap() }
-    fn read_i16(&mut self) -> i16 { self.read_i64().to_i16().unwrap() }
-    fn read_i8(&mut self) -> i8 { self.read_i64().to_i8().unwrap() }
+    fn read_int(&mut self) -> DecodeResult<int> { self.read_i64().and_then(|x| x.to_int().map_or(Err(ParseError), |x| Ok(x))) }
+    fn read_i32(&mut self) -> DecodeResult<i32> { self.read_i64().and_then(|x| x.to_i32().map_or(Err(ParseError), |x| Ok(x))) }
+    fn read_i16(&mut self) -> DecodeResult<i16> { self.read_i64().and_then(|x| x.to_i16().map_or(Err(ParseError), |x| Ok(x))) }
+    fn read_i8(&mut self) -> DecodeResult<i8> { self.read_i64().and_then(|x| x.to_i8().map_or(Err(ParseError), |x| Ok(x))) }
 
-    fn read_bool(&mut self) -> bool {
+    fn read_bool(&mut self) -> DecodeResult<bool> {
         match self.value {
-            Boolean(b) => b,
-            _ => fail!()
+            Boolean(b) => Ok(b),
+            _ => Err(ParseError)
         }
     }
 
-    fn read_f64(&mut self) -> f64 {
+    fn read_f64(&mut self) -> DecodeResult<f64> {
          match self.value {
-            Float(f) => f,
-            _ => fail!()
+            Float(f) => Ok(f),
+            _ => Err(ParseError)
         }
     }
 
-    fn read_f32(&mut self) -> f32 {
-        self.read_f64().to_f32().unwrap()
+    fn read_f32(&mut self) -> DecodeResult<f32> {
+        self.read_f64().and_then(|x| x.to_f32().map_or(Err(ParseError), |x| Ok(x)))
     }
 
-    fn read_char(&mut self) -> char {
-        let s = self.read_str();
-        if s.len() != 1 { fail!("no character") }
-        s[0] as char
+    fn read_char(&mut self) -> DecodeResult<char> {
+        let s = try!(self.read_str());
+        if s.len() != 1 { return Err(ParseError); }
+        Ok(s[0] as char)
     }
 
-    fn read_str(&mut self) -> ~str {
+    fn read_str(&mut self) -> DecodeResult<~str> {
         match mem::replace(&mut self.value, NoValue) {
-            String(s) => s,
-            _ => fail!()
+            String(s) => Ok(s),
+            _ => Err(ParseError)
         }
     }
 
-    fn read_enum<T>(&mut self, _name: &str, _f: |&mut Decoder| -> T) -> T { fail!() }
-    fn read_enum_variant<T>(&mut self, _names: &[&str], _f: |&mut Decoder, uint| -> T) -> T { fail!() }
-    fn read_enum_variant_arg<T>(&mut self, _idx: uint, _f: |&mut Decoder| -> T) -> T { fail!() }
+    fn read_enum<T>(&mut self, _name: &str, _f: |&mut Decoder| -> DecodeResult<T>) -> DecodeResult<T> { Err(ParseError) }
+    fn read_enum_variant<T>(&mut self, _names: &[&str], _f: |&mut Decoder, uint| -> DecodeResult<T>) -> DecodeResult<T> { Err(ParseError) }
+    fn read_enum_variant_arg<T>(&mut self, _idx: uint, _f: |&mut Decoder| -> DecodeResult<T>) -> DecodeResult<T> { Err(ParseError) }
 
-    fn read_seq<T>(&mut self, f: |&mut Decoder, uint| -> T) -> T {
+    fn read_seq<T>(&mut self, f: |&mut Decoder, uint| -> DecodeResult<T>) -> DecodeResult<T> {
         match mem::replace(&mut self.value, NoValue) {
             Array(a) | TableArray(a) => {
                 let l = a.len();
                 f(&mut Decoder::new_state(Arr(a.move_iter())), l)
             }
-            _ => fail!()
+            _ => Err(ParseError)
         }
     }
 
-    fn read_seq_elt<T>(&mut self, _idx: uint, f: |&mut Decoder| -> T) -> T {
+    fn read_seq_elt<T>(&mut self, _idx: uint, f: |&mut Decoder| -> DecodeResult<T>) -> DecodeResult<T> {
         // XXX: assert(idx)
         // XXX: assert!(self.value == NoValue);
         // XXX: self.value = ...
         match self.state {
             Arr(ref mut a) => f(&mut Decoder::new(a.next().unwrap())),
-            _ => fail!()
+            _ => Err(ParseError)
         }
     }
 
-    fn read_struct<T>(&mut self, _name: &str, _len: uint, f: |&mut Decoder| -> T) -> T {
+    fn read_struct<T>(&mut self, _name: &str, _len: uint, f: |&mut Decoder| -> DecodeResult<T>) -> DecodeResult<T> {
         match mem::replace(&mut self.value, NoValue) {
             Table(_, hm) => {
                 f(&mut Decoder::new_state(Tab(hm)))
             }
-            _ => fail!()
+            _ => Err(ParseError)
         }
     }
 
-    fn read_struct_field<T>(&mut self, name: &str, _idx: uint, f: |&mut Decoder| -> T) -> T {
+    fn read_struct_field<T>(&mut self, name: &str, _idx: uint, f: |&mut Decoder| -> DecodeResult<T>) -> DecodeResult<T> {
         // XXX: assert!(self.value == NoValue);
         match self.state {
             Tab(ref mut tab) => {
@@ -994,36 +996,36 @@ impl serialize::Decoder for Decoder {
                     Some(val) => f(&mut Decoder::new(val))
                 }
             }
-            _ => fail!()
+            _ => Err(ParseError)
         }
     }
 
-    fn read_option<T>(&mut self, f: |&mut Decoder, bool| -> T) -> T {
+    fn read_option<T>(&mut self, f: |&mut Decoder, bool| -> DecodeResult<T>) -> DecodeResult<T> {
         match self.value {
             NoValue => f(self, false), // XXX
             _ => f(self, true)
         }
     }
 
-    fn read_map<T>(&mut self, f: |&mut Decoder, uint| -> T) -> T {
+    fn read_map<T>(&mut self, f: |&mut Decoder, uint| -> DecodeResult<T>) -> DecodeResult<T> {
         match mem::replace(&mut self.value, NoValue) {
             Table(_, hm) => {
                 let len = hm.len();
                 f(&mut Decoder::new_state(Map(hm.move_iter())), len)
             }
-            _ => fail!()
+            _ => Err(ParseError)
         }
     }
 
-    fn read_map_elt_key<T>(&mut self, _idx: uint, f: |&mut Decoder| -> T) -> T {
+    fn read_map_elt_key<T>(&mut self, _idx: uint, f: |&mut Decoder| -> DecodeResult<T>) -> DecodeResult<T> {
         let (k, v) = match self.state {
             Map(ref mut map) => {
                 match map.next() {
-                    None => fail!(),
+                    None => return Err(ParseError),
                     Some((k, v)) => (k, v)
                 }
             }
-            _ => fail!()
+            _ => return Err(ParseError)
         };
         self.value = String(k);
         let res = f(self);
@@ -1031,14 +1033,14 @@ impl serialize::Decoder for Decoder {
         res
     }
 
-    fn read_map_elt_val<T>(&mut self, _idx: uint, f: |&mut Decoder| -> T) -> T {
+    fn read_map_elt_val<T>(&mut self, _idx: uint, f: |&mut Decoder| -> DecodeResult<T>) -> DecodeResult<T> {
         f(self)
     }
 
     fn read_enum_struct_variant<T>(&mut self,
                                    names: &[&str],
-                                   f: |&mut Decoder, uint| -> T)
-                                   -> T {
+                                   f: |&mut Decoder, uint| -> DecodeResult<T>)
+                                   -> DecodeResult<T> {
         self.read_enum_variant(names, f)
     }
 
@@ -1046,35 +1048,35 @@ impl serialize::Decoder for Decoder {
     fn read_enum_struct_variant_field<T>(&mut self,
                                          _name: &str,
                                          idx: uint,
-                                         f: |&mut Decoder| -> T)
-                                         -> T {
+                                         f: |&mut Decoder| -> DecodeResult<T>)
+                                         -> DecodeResult<T> {
         self.read_enum_variant_arg(idx, f)
     }
 
-    fn read_tuple<T>(&mut self, f: |&mut Decoder, uint| -> T) -> T {
+    fn read_tuple<T>(&mut self, f: |&mut Decoder, uint| -> DecodeResult<T>) -> DecodeResult<T> {
         self.read_seq(f)
     }
 
-    fn read_tuple_arg<T>(&mut self, idx: uint, f: |&mut Decoder| -> T) -> T {
+    fn read_tuple_arg<T>(&mut self, idx: uint, f: |&mut Decoder| -> DecodeResult<T>) -> DecodeResult<T> {
         self.read_seq_elt(idx, f)
     }
 
     fn read_tuple_struct<T>(&mut self,
                             _name: &str,
-                            f: |&mut Decoder, uint| -> T)
-                            -> T {
+                            f: |&mut Decoder, uint| -> DecodeResult<T>)
+                            -> DecodeResult<T> {
         self.read_tuple(f)
     }
 
     fn read_tuple_struct_arg<T>(&mut self,
                                 idx: uint,
-                                f: |&mut Decoder| -> T)
-                                -> T {
+                                f: |&mut Decoder| -> DecodeResult<T>)
+                                -> DecodeResult<T> {
         self.read_tuple_arg(idx, f)
     }
 }
 
-pub fn from_toml<T: Decodable<Decoder>>(value: Value) -> T {
+pub fn from_toml<T: Decodable<Decoder, Error>>(value: Value) -> DecodeResult<T> {
     let mut decoder = Decoder::new(value);
     Decodable::decode(&mut decoder)
 }

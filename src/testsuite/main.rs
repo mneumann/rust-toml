@@ -47,10 +47,10 @@ fn to_json(v: &toml::Value) -> Json {
             Object(tree)
         }
         &toml::TableArray(ref arr) => {
-            List(arr.map(|i| to_json(i)))
+            List(arr.iter().map(|i| to_json(i)).collect())
         }
         &toml::Array(ref arr) => {
-            let list = arr.map(|i| to_json(i));
+            let list = arr.iter().map(|i| to_json(i)).collect();
             to_json_type(~"array", List(list))
         }
         &toml::Boolean(true) => { to_json_type(~"bool", String(~"true")) }
