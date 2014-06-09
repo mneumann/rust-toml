@@ -130,6 +130,7 @@ fn independent_test_runner(path: String) {
           match toml_json {
               Ok(json) => println!("{:s}", json.to_pretty_str()),
               Err(toml::ParseError) => println!("(parse error)"),
+              Err(toml::ParseErrorInField(field)) => println!("(parse error in `{}`)", field),
               Err(toml::IOError(e)) => println!("({})", e)
           }
           println!("===============================================");

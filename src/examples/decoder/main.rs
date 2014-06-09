@@ -35,7 +35,12 @@ fn main() {
             println!("parse error");
             os::set_exit_status(1);
             return;
-        }
+        },
+        Err(toml::ParseErrorInField(field)) => {
+            println!("parse error in field `{}`", field);
+            os::set_exit_status(1);
+            return;
+        },
         Err(toml::IOError(e)) => {
             println!("I/O error: {}", e);
             os::set_exit_status(1);

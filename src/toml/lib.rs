@@ -1,4 +1,4 @@
-#![crate_id = "github.com/mneumann/rust-toml#toml"]
+#![crate_id = "github.com/mneumann/rust-toml#toml:0.1"]
 #![desc = "A TOML configuration file parser for Rust"]
 #![license = "MIT"]
 #![crate_type = "lib"]
@@ -10,15 +10,15 @@
 ///
 /// [1]: https://github.com/mojombo/toml
 
-#[phase(syntax, link)] extern crate log;
-
 extern crate serialize;
+extern crate collections;
+#[phase(syntax, link)] extern crate log;
 
 use std::char;
 use std::mem;
-use std::vec::{Vec, MoveItems};
 
-use std::collections::hashmap::{HashMap,MoveEntries};
+use collections::hashmap::{HashMap,MoveEntries};
+use std::vec::MoveItems;
 
 use std::io::{File,IoError,IoResult,EndOfFile};
 use std::io::{Buffer,BufReader,BufferedReader};
@@ -64,10 +64,12 @@ impl fmt::Show for Value {
 
 
 /// Possible errors returned from the parse functions
-#[deriving(Show,Clone,PartialEq)]
+#[deriving(Show,Clone,Eq)]
 pub enum Error {
-    /// An parser error occurred during parsing
+    /// A parser error occurred during parsing
     ParseError,
+    /// A parser error with some human-readable context
+    ParseErrorInField(String),
     /// An I/O error occurred during parsing
     IOError(IoError)
 }
@@ -238,7 +240,7 @@ struct ValueBuilder<'a> {
 
 impl<'a> ValueBuilder<'a> {
     fn new(root: &'a mut Box<HashMap<String, Value>>) -> ValueBuilder<'a> {
-        ValueBuilder { root: root, current_path: Vec::new() }
+        ValueBuilder { root: root, current_path: vec!() }
     }
 
     fn recursive_create_tree(path: &[String], ht: &mut Box<HashMap<String, Value>>, is_array: bool) -> bool {
@@ -265,12 +267,13 @@ impl<'a> ValueBuilder<'a> {
                     }
                 }
                 else {
-                    match table_array.mut_last() {
-                        Some(&Table(_, ref mut hmap)) => {
+                    //let last_table = &mut ;
+                    match table_array.mut_last().unwrap() {
+                        &Table(_, ref mut hmap) => {
                             return ValueBuilder::recursive_create_tree(path.tail(), hmap, is_array);
                         }
                         _ => {
-                            // TableArray's only contain Table's and must be non-empty
+                            // TableArray's only contain Table's
                             unreachable!();
                         }
                     }
@@ -305,7 +308,7 @@ impl<'a> ValueBuilder<'a> {
 
         let value =
         if term_rec { // terminal recursion
-            if is_array { TableArray(vec![Table(false, box HashMap::new())]) }
+            if is_array { TableArray(vec!(Table(false, box HashMap::new()))) }
             else { Table(true, box HashMap::new()) }
         }
         else {
@@ -314,14 +317,14 @@ impl<'a> ValueBuilder<'a> {
             if !ok { return false }
             Table(false, table)
         };
-        let ok = ht.insert(head.to_string(), value);
+        let ok = ht.insert(head.to_str(), value);
         assert!(ok);
         return ok;
     }
 
     fn insert_value(path: &[String], key: &str, ht: &mut Box<HashMap<String, Value>>, val: Value) -> bool {
         if path.is_empty() {
-            return ht.insert(key.to_string(), val);
+            return ht.insert(key.to_str(), val);
         }
         else {
             let head = path.head().unwrap(); // TODO: optimize
@@ -331,12 +334,12 @@ impl<'a> ValueBuilder<'a> {
                 }
                 Some(&TableArray(ref mut table_array)) => {
                     assert!(table_array.len() > 0);
-                    match table_array.mut_last() {
-                        Some(&Table(_, ref mut hmap)) => {
+                    match table_array.mut_last().unwrap() {
+                        &Table(_, ref mut hmap) => {
                             return ValueBuilder::insert_value(path.tail(), key, hmap, val);
                         }
                         _ => {
-                            // TableArray's only contain Table's and must be non-empty
+                            // TableArray's only contain Table's
                             unreachable!();
                         }
                     }
@@ -352,7 +355,7 @@ impl<'a> ValueBuilder<'a> {
 
 impl<'a> Visitor for ValueBuilder<'a> {
     fn section(&mut self, name: String, is_array: bool) -> bool {
-        self.current_path = name.as_slice().split_str(".").map(|i| i.to_string()).collect();
+        self.current_path = name.as_slice().split('.').map(|i| i.to_str()).collect();
 
         let ok = ValueBuilder::recursive_create_tree(self.current_path.as_slice(), self.root, is_array);
         if !ok {
@@ -612,7 +615,7 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
             }
             '[' => {
                 self.advance();
-                let mut arr = Vec::new();
+                let mut arr = vec!();
                 loop {
                     match self.parse_value() {
                         NoValue => {
@@ -620,7 +623,7 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
                         }
                         val => {
                             if !arr.is_empty() {
-                                if !have_equiv_types(arr.get(0), &val) {
+                                if !have_equiv_types(arr.as_slice().head().unwrap(), &val) {
                                     debug!("Incompatible element types in array");
                                     return NoValue;
                                 }
@@ -652,7 +655,7 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
     fn parse_string(&mut self) -> Option<String> {
         if !self.advance_if('"') { return None }
 
-        let mut str = "".to_string();
+        let mut str = String::new();
         loop {
             if self.ch().is_none() { return None }
             match self.ch().unwrap() {
@@ -707,7 +710,7 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
     }
 
     fn read_token(&mut self, f: |char| -> bool) -> String {
-        let mut token = "".to_string();
+        let mut token = String::new();
         loop {
             match self.ch() {
                 Some(ch) => {
@@ -882,15 +885,16 @@ enum State {
 
 pub struct Decoder {
     value: Value,
-    state: State
+    state: State,
+    field: Option<String>
 }
 
 impl Decoder {
     pub fn new(value: Value) -> Decoder {
-        Decoder {value: value, state: No}
+        Decoder { value: value, state: No, field: None }
     }
     fn new_state(state: State) -> Decoder {
-        Decoder {value: NoValue, state: state}
+        Decoder { value: NoValue, state: state, field: None }
     }
 }
 
@@ -948,7 +952,7 @@ impl serialize::Decoder<Error> for Decoder {
 
     fn read_str(&mut self) -> DecodeResult<String> {
         match mem::replace(&mut self.value, NoValue) {
-            String(s) => Ok(s),
+            String(s) => Ok(s.to_str()),
             _ => Err(ParseError)
         }
     }
@@ -988,14 +992,20 @@ impl serialize::Decoder<Error> for Decoder {
 
     fn read_struct_field<T>(&mut self, name: &str, _idx: uint, f: |&mut Decoder| -> DecodeResult<T>) -> DecodeResult<T> {
         // XXX: assert!(self.value == NoValue);
-        match self.state {
+        let res = match self.state {
             Tab(ref mut tab) => {
-                match tab.pop(&name.to_string()) { // XXX: pop_equiv(...) or find_equiv_mut...
+                match tab.pop(&name.to_str()) { // XXX: pop_equiv(...) or find_equiv_mut...
                     None => f(&mut Decoder::new(NoValue)), // XXX: NoValue means "nil" here
                     Some(val) => f(&mut Decoder::new(val))
                 }
             }
             _ => Err(ParseError)
+        };
+
+        match res {
+            Ok(val) => Ok(val),
+            Err(ParseError) => Err(ParseErrorInField(name.to_str())),
+            Err(e) => Err(e)
         }
     }
 
