@@ -20,8 +20,8 @@ use std::io::File;
 
 fn to_json_type(typ: &str, val: Json) -> Json {
     let mut tree = box TreeMap::new();
-    tree.insert("type".to_owned(), String(typ.to_owned()));
-    tree.insert("value".to_owned(), val);
+    tree.insert("type".to_string(), String(typ.to_string()));
+    tree.insert("value".to_string(), val);
     Object(tree)
 }
 
@@ -30,9 +30,9 @@ fn format_float(f: f64) -> String {
     let str = str.as_slice();
     let str = str.trim_right_chars('0');
     if str.ends_with(".") {
-      str.to_owned().append("0")
+      str.to_string().append("0")
     } else {
-      str.to_owned()
+      str.to_string()
     }
 }
 
@@ -53,8 +53,8 @@ fn to_json(v: &toml::Value) -> Json {
             let list = arr.iter().map(|i| to_json(i)).collect();
             to_json_type("array", List(list))
         }
-        &toml::Boolean(true) => { to_json_type("bool", String("true".to_owned())) }
-        &toml::Boolean(false) => { to_json_type("bool", String("false".to_owned())) }
+        &toml::Boolean(true) => { to_json_type("bool", String("true".to_string())) }
+        &toml::Boolean(false) => { to_json_type("bool", String("false".to_string())) }
         &toml::PosInt(n) => { to_json_type("integer", String(n.to_str())) }
         &toml::NegInt(n) => { to_json_type("integer", String(format!("-{:u}", n))) }
         &toml::Float(n) => { to_json_type("float", String(format_float(n))) }
