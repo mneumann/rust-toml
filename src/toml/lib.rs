@@ -264,14 +264,17 @@ impl<'a> ValueBuilder<'a> {
                         }
                     }
                     &Table(_) => {
-                        if is_array {
-                            debug!("Duplicate key");
-                            return false;
-                        }
-                        else {
-                            debug!("Duplicate section");
-                            return false;
-                        }
+                        // this happens for example here:
+                        //
+                        //     [a.b]
+                        //     [a.b]
+                        //
+                        // or:
+                        //
+                        //     [a.b]
+                        //     [[a.b]]
+                        debug!("Duplicate section");
+                        return false;
                     }
                     &TableInner(_) => {
                         if is_array {
@@ -279,6 +282,9 @@ impl<'a> ValueBuilder<'a> {
                             return false;
                         }
                         else {
+                            // [a.b.c]
+                            // [a.b]
+
                             // XXX: here we need to change it into a Table() 
                             return true;
                         }
