@@ -242,12 +242,18 @@ struct ValueBuilder<'a> {
     current_path: Vec<String>
 }
 
+enum RecursiveStatus {
+  IsOk,
+  IsErr,  
+  ChangeKeyToTable
+}
+  
 impl<'a> ValueBuilder<'a> {
     fn new(root: &'a mut Box<HashMap<String, Value>>) -> ValueBuilder<'a> {
         ValueBuilder { root: root, current_path: vec!() }
     }
 
-    fn recursive_create_tree_terminal(key: &String, ht: &mut Box<HashMap<String, Value>>, is_array: bool) -> bool {
+    fn recursive_create_tree_terminal(key: &String, ht: &mut Box<HashMap<String, Value>>, is_array: bool) -> RecursiveStatus {
         match ht.find_mut(key) {
             Some(node) => {
                 match node {
@@ -256,11 +262,11 @@ impl<'a> ValueBuilder<'a> {
 
                         if is_array {
                             table_array.push(Table(box HashMap::new()));
-                            return true;
+                            return IsOk;
                         }
                         else {
                             debug!("Duplicate key");
-                            return false;
+                            return IsErr;
                         }
                     }
                     &Table(_) => {
@@ -274,24 +280,22 @@ impl<'a> ValueBuilder<'a> {
                         //     [a.b]
                         //     [[a.b]]
                         debug!("Duplicate section");
-                        return false;
+                        return IsErr;
                     }
                     &TableInner(_) => {
                         if is_array {
                             debug!("Duplicate key");
-                            return false;
+                            return IsErr;
                         }
                         else {
                             // [a.b.c]
                             // [a.b]
-
-                            // XXX: here we need to change it into a Table() 
-                            return true;
+                            return ChangeKeyToTable;
                         }
                     }
                     _ => {
                         debug!("Wrong type/duplicate key");
-                        return false;
+                        return IsErr;
                     }
                 }
             }
@@ -305,7 +309,7 @@ impl<'a> ValueBuilder<'a> {
             else { Table(box HashMap::new()) };
         let ok = ht.insert(key.to_str(), value);
         assert!(ok);
-        return ok;
+        return IsOk;
     }
 
     fn recursive_create_tree(path: &[String], ht: &mut Box<HashMap<String, Value>>, is_array: bool) -> bool {
@@ -317,7 +321,24 @@ impl<'a> ValueBuilder<'a> {
 
         if path.len() == 1 {
             // terminal recursion
-            return ValueBuilder::recursive_create_tree_terminal(head, ht, is_array);
+            let res = ValueBuilder::recursive_create_tree_terminal(head, ht, is_array);
+            match res {
+                IsOk => return true,
+                IsErr => return false,
+                ChangeKeyToTable => {
+                    let r = ht.pop(head).unwrap();
+                    match r {
+                        TableInner(hmap) => {
+                            let ok = ht.insert(head.to_str(), Table(hmap));
+                            assert!(ok);
+                        }
+                        _ => {
+                            unreachable!()
+                        }
+                    }
+                    return true;
+                }
+            }
         }
 
         match ht.find_mut(head) {
