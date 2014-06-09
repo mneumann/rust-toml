@@ -11,13 +11,12 @@
 /// [1]: https://github.com/mojombo/toml
 
 extern crate serialize;
-extern crate collections;
 #[phase(syntax, link)] extern crate log;
 
 use std::char;
 use std::mem;
 
-use collections::hashmap::{HashMap,MoveEntries};
+use std::collections::hashmap::{HashMap,MoveEntries};
 use std::vec::MoveItems;
 
 use std::io::{File,IoError,IoResult,EndOfFile};
@@ -64,7 +63,7 @@ impl fmt::Show for Value {
 
 
 /// Possible errors returned from the parse functions
-#[deriving(Show,Clone,Eq)]
+#[deriving(Show,Clone,PartialEq)]
 pub enum Error {
     /// A parser error occurred during parsing
     ParseError,
