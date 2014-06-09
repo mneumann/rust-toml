@@ -115,10 +115,15 @@ fn independent_test_runner(path: String) {
       let toml = toml::parse_from_path(&filename);
       let toml_json = toml.map(|t| to_json(&t));
 
-      if Ok(&json) == toml_json.as_ref() {
-          passed += 1;
-          println!("   [PASS]");
-      } else {
+      let has_failed = 
+          match toml_json {
+              Ok(ref toml_json_inner) => {
+                  toml_json_inner != &json
+              }
+              Err(_) => { true }
+          };
+
+      if has_failed {
           println!("===============================================");
           println!("{:s}", json.to_pretty_str());
           println!("-----------------------------------------------");
@@ -130,6 +135,9 @@ fn independent_test_runner(path: String) {
           println!("===============================================");
           failed += 1;
           println!("   [FAIL]");
+      } else {
+          passed += 1;
+          println!("   [PASS]");
       }
     }
   }
