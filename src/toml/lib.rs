@@ -247,74 +247,47 @@ impl<'a> ValueBuilder<'a> {
         ValueBuilder { root: root, current_path: vec!() }
     }
 
-    fn recursive_create_tree(path: &[String], ht: &mut Box<HashMap<String, Value>>, is_array: bool) -> bool {
-        assert!(path.len() > 0);
+    fn recursive_create_tree_terminal(key: &String, ht: &mut Box<HashMap<String, Value>>, is_array: bool) -> bool {
+        match ht.find_mut(key) {
+            Some(node) => {
+                match node {
+                    &TableArray(ref mut table_array) => {
+                        assert!(table_array.len() > 0);
 
-        if path.head().unwrap().is_empty() { return false } // don't allow empty keys
-
-        let term_rec: bool = path.len() == 1;
-
-        let head = path.head().unwrap(); // TODO: optimize
-
-        match ht.find_mut(head) {
-            Some(&TableArray(ref mut table_array)) => {
-                assert!(table_array.len() > 0);
-
-                if term_rec { // terminal recursion
-                    if is_array {
-                        table_array.push(Table(box HashMap::new()));
-                        return true;
-                    }
-                    else {
-                        debug!("Duplicate key");
-                        return false;
-                    }
-                }
-                else {
-                    match table_array.mut_last() {
-                        Some(&Table(ref mut hmap)) | Some(&TableInner(ref mut hmap)) => {
-                            return ValueBuilder::recursive_create_tree(path.tail(), hmap, is_array);
+                        if is_array {
+                            table_array.push(Table(box HashMap::new()));
+                            return true;
                         }
-                        _ => {
-                            // TableArray's only contain Table's and must be non-empty
-                            unreachable!();
+                        else {
+                            debug!("Duplicate key");
+                            return false;
                         }
                     }
-                }
-            }
-            Some(&Table(ref mut table)) => {
-                if term_rec { // terminal recursion
-                    if is_array {
-                        debug!("Duplicate key");
+                    &Table(_) => {
+                        if is_array {
+                            debug!("Duplicate key");
+                            return false;
+                        }
+                        else {
+                            debug!("Duplicate section");
+                            return false;
+                        }
+                    }
+                    &TableInner(_) => {
+                        if is_array {
+                            debug!("Duplicate key");
+                            return false;
+                        }
+                        else {
+                            // XXX: here we need to change it into a Table() 
+                            return true;
+                        }
+                    }
+                    _ => {
+                        debug!("Wrong type/duplicate key");
                         return false;
                     }
-                    else {
-                        debug!("Duplicate section");
-                        return false;
-                    }
                 }
-                else {
-                    return ValueBuilder::recursive_create_tree(path.tail(), table, is_array);
-                }
-            }
-            Some(&TableInner(ref mut table)) => {
-                if term_rec { // terminal recursion
-                    if is_array {
-                        debug!("Duplicate key");
-                        return false;
-                    }
-                    else {
-                        // XXX: here we need to change it into a Table() 
-                        return true;
-                    }
-                }
-                else {
-                    return ValueBuilder::recursive_create_tree(path.tail(), table, is_array);
-                }
-            }
-            Some(_) => {
-                debug!("Wrong type/duplicate key");
-                return false;
             }
             None => {
                 // fall-through, as we cannot modify 'ht' here
@@ -322,17 +295,59 @@ impl<'a> ValueBuilder<'a> {
         }
 
         let value =
-        if term_rec { // terminal recursion
             if is_array { TableArray(vec!(TableInner(box HashMap::new()))) }
-            else { Table(box HashMap::new()) }
+            else { Table(box HashMap::new()) };
+        let ok = ht.insert(key.to_str(), value);
+        assert!(ok);
+        return ok;
+    }
+
+    fn recursive_create_tree(path: &[String], ht: &mut Box<HashMap<String, Value>>, is_array: bool) -> bool {
+        assert!(path.len() > 0);
+
+        if path.head().unwrap().is_empty() { return false } // don't allow empty keys
+
+        let head = path.head().unwrap(); // TODO: optimize
+
+        if path.len() == 1 {
+            // terminal recursion
+            return ValueBuilder::recursive_create_tree_terminal(head, ht, is_array);
         }
-        else {
-            let mut table = box HashMap::new();
-            let ok = ValueBuilder::recursive_create_tree(path.tail(), &mut table, is_array);
-            if !ok { return false }
-            TableInner(table)
-        };
-        let ok = ht.insert(head.to_str(), value);
+
+        match ht.find_mut(head) {
+            Some(node) => {
+                match node {
+                    &TableArray(ref mut table_array) => {
+                        assert!(table_array.len() > 0);
+
+                        match table_array.mut_last() {
+                           Some(&Table(ref mut hmap)) | Some(&TableInner(ref mut hmap)) => {
+                                return ValueBuilder::recursive_create_tree(path.tail(), hmap, is_array);
+                            }
+                            _ => {
+                                // TableArray's only contain Table's and must be non-empty
+                                unreachable!();
+                            }
+                        }
+                    }
+                    &Table(ref mut table) | &TableInner(ref mut table) => {
+                        return ValueBuilder::recursive_create_tree(path.tail(), table, is_array);
+                    }
+                    _ => {
+                        debug!("Wrong type/duplicate key");
+                        return false;
+                    }
+                }
+            }
+            None => {
+                // fall-through, as we cannot modify 'ht' here
+            }
+        }
+
+        let mut table = box HashMap::new();
+        let ok = ValueBuilder::recursive_create_tree(path.tail(), &mut table, is_array);
+        if !ok { return false }
+        let ok = ht.insert(head.to_str(), TableInner(table));
         assert!(ok);
         return ok;
     }
