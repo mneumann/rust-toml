@@ -39,7 +39,12 @@ pub enum Value {
     Datetime(u16,u8,u8,u8,u8,u8),
     Array(Vec<Value>),
     TableArray(Vec<Value>),
-    Table(bool, Box<HashMap<String, Value>>) // bool=true iff section already defiend
+
+    // TableInner is used to create inner nodes for which no toml [section]
+    // exists. For example in case of [a.b.c], `a` and `b` would be TableInner
+    // while `c` would be a Table.
+    TableInner(Box<HashMap<String, Value>>),
+    Table(Box<HashMap<String, Value>>)
 }
 
 impl fmt::Show for Value {
@@ -56,7 +61,8 @@ impl fmt::Show for Value {
             }
             Array(ref arr) => write!(fmt, "Array({})", arr.as_slice()),
             TableArray(ref arr) => write!(fmt, "TableArray({})", arr.as_slice()),
-            Table(_, ref hm) => write!(fmt, "Table({})", **hm)
+            TableInner(ref hm) => write!(fmt, "TableInner({})", **hm),
+            Table(ref hm) => write!(fmt, "Table({})", **hm)
         }
     }
 }
@@ -118,10 +124,8 @@ impl<'a> LookupValue<'a> for uint {
 impl<'a, 'b> LookupValue<'a> for &'b str {
     fn lookup_in(&self, value: &'a Value) -> Option<&'a Value> {
         match value {
-            &Table(_, ref map) => {
-                map.find_equiv(self)
-            }
-            _ => { None }
+            &Table(ref map) | &TableInner(ref map) => map.find_equiv(self),
+            _ => None
         }
     }
 }
@@ -183,8 +187,8 @@ impl Value {
 
     pub fn get_table<'a>(&'a self) -> Option<&'a Box<HashMap<String, Value>>> {
         match self {
-            &Table(_, ref table) => { Some(table) }
-            _ => { None }
+            &Table(ref table) | &TableInner(ref table) => Some(table),
+            _ => None
         }
     }
 
@@ -258,7 +262,7 @@ impl<'a> ValueBuilder<'a> {
 
                 if term_rec { // terminal recursion
                     if is_array {
-                        table_array.push(Table(true, box HashMap::new()));
+                        table_array.push(Table(box HashMap::new()));
                         return true;
                     }
                     else {
@@ -268,7 +272,7 @@ impl<'a> ValueBuilder<'a> {
                 }
                 else {
                     match table_array.mut_last() {
-                        Some(&Table(_, ref mut hmap)) => {
+                        Some(&Table(ref mut hmap)) | Some(&TableInner(ref mut hmap)) => {
                             return ValueBuilder::recursive_create_tree(path.tail(), hmap, is_array);
                         }
                         _ => {
@@ -278,17 +282,29 @@ impl<'a> ValueBuilder<'a> {
                     }
                 }
             }
-            Some(&Table(already_created, ref mut table)) => {
+            Some(&Table(ref mut table)) => {
                 if term_rec { // terminal recursion
                     if is_array {
                         debug!("Duplicate key");
                         return false;
                     }
                     else {
-                        if already_created {
-                            debug!("Duplicate section");
-                            return false;
-                        }
+                        debug!("Duplicate section");
+                        return false;
+                    }
+                }
+                else {
+                    return ValueBuilder::recursive_create_tree(path.tail(), table, is_array);
+                }
+            }
+            Some(&TableInner(ref mut table)) => {
+                if term_rec { // terminal recursion
+                    if is_array {
+                        debug!("Duplicate key");
+                        return false;
+                    }
+                    else {
+                        // XXX: here we need to change it into a Table() 
                         return true;
                     }
                 }
@@ -307,14 +323,14 @@ impl<'a> ValueBuilder<'a> {
 
         let value =
         if term_rec { // terminal recursion
-            if is_array { TableArray(vec!(Table(false, box HashMap::new()))) }
-            else { Table(true, box HashMap::new()) }
+            if is_array { TableArray(vec!(TableInner(box HashMap::new()))) }
+            else { Table(box HashMap::new()) }
         }
         else {
             let mut table = box HashMap::new();
             let ok = ValueBuilder::recursive_create_tree(path.tail(), &mut table, is_array);
             if !ok { return false }
-            Table(false, table)
+            TableInner(table)
         };
         let ok = ht.insert(head.to_str(), value);
         assert!(ok);
@@ -328,13 +344,13 @@ impl<'a> ValueBuilder<'a> {
         else {
             let head = path.head().unwrap(); // TODO: optimize
             match ht.find_mut(head) {
-                Some(&Table(_, ref mut table)) => {
+                Some(&Table(ref mut table)) | Some(&TableInner(ref mut table)) => {
                     return ValueBuilder::insert_value(path.tail(), key, table, val);
                 }
                 Some(&TableArray(ref mut table_array)) => {
                     assert!(table_array.len() > 0);
                     match table_array.mut_last() {
-                        Some(&Table(_, ref mut hmap)) => {
+                        Some(&Table(ref mut hmap)) | Some(&TableInner(ref mut hmap)) => {
                             return ValueBuilder::insert_value(path.tail(), key, hmap, val);
                         }
                         _ => {
@@ -867,7 +883,7 @@ pub fn parse_from_buffer<BUF: Buffer>(rd: &mut BUF) -> Result<Value,Error> {
             Ok(_) => ()
         }
     }
-    return Ok(Table(false, ht));
+    return Ok(TableInner(ht));
 }
 
 pub fn parse_from_bytes(bytes: &[u8]) -> Result<Value,Error> {
@@ -982,7 +998,7 @@ impl serialize::Decoder<Error> for Decoder {
 
     fn read_struct<T>(&mut self, _name: &str, _len: uint, f: |&mut Decoder| -> DecodeResult<T>) -> DecodeResult<T> {
         match mem::replace(&mut self.value, NoValue) {
-            Table(_, hm) => {
+            Table(hm) | TableInner(hm) => {
                 f(&mut Decoder::new_state(Tab(hm)))
             }
             _ => Err(ParseError)
@@ -1017,7 +1033,7 @@ impl serialize::Decoder<Error> for Decoder {
 
     fn read_map<T>(&mut self, f: |&mut Decoder, uint| -> DecodeResult<T>) -> DecodeResult<T> {
         match mem::replace(&mut self.value, NoValue) {
-            Table(_, hm) => {
+            Table(hm) | TableInner(hm) => {
                 let len = hm.len();
                 f(&mut Decoder::new_state(Map(hm.move_iter())), len)
             }

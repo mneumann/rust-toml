@@ -39,7 +39,7 @@ fn format_float(f: f64) -> String {
 fn to_json(v: &toml::Value) -> Json {
     match v {
         &toml::NoValue => { fail!("Invalid toml document"); }
-        &toml::Table(_, ref map) => {
+        &toml::Table(ref map) | &toml::TableInner(ref map) => {
             let mut tree = box TreeMap::new();
             for (k, v) in map.iter() {
                 tree.insert(k.clone(), to_json(v));
