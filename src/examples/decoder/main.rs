@@ -1,20 +1,20 @@
 extern crate serialize;
-extern crate toml = "github.com/mneumann/rust-toml#toml:0.1";
+extern crate toml = "github.com/mneumann/rust-toml#toml";
 
 use std::os;
 
 #[deriving(Show,Decodable)]
 struct Config {
-    host: ~str,
+    host: String,
     port: Option<uint>,
-    ids: ~[uint],
-    products: ~[Product]
+    ids: Vec<uint>,
+    products: Vec<Product>
 }
 
 #[deriving(Show,Decodable)]
 struct Product {
     id: uint,
-    name: ~str
+    name: String
 }
 
 fn main() {
@@ -42,7 +42,7 @@ fn main() {
             return;
         }
     };
-    println!("{:?}", value);
+    println!("{}", value);
 
     let cfg: Config = toml::from_toml(value).unwrap();
     println!("{:s}", cfg.to_str());
