@@ -314,14 +314,14 @@ impl<'a> ValueBuilder<'a> {
             if !ok { return false }
             Table(false, table)
         };
-        let ok = ht.insert(head.to_owned(), value);
+        let ok = ht.insert(head.to_string(), value);
         assert!(ok);
         return ok;
     }
 
     fn insert_value(path: &[String], key: &str, ht: &mut Box<HashMap<String, Value>>, val: Value) -> bool {
         if path.is_empty() {
-            return ht.insert(key.to_owned(), val);
+            return ht.insert(key.to_string(), val);
         }
         else {
             let head = path.head().unwrap(); // TODO: optimize
@@ -352,7 +352,7 @@ impl<'a> ValueBuilder<'a> {
 
 impl<'a> Visitor for ValueBuilder<'a> {
     fn section(&mut self, name: String, is_array: bool) -> bool {
-        self.current_path = name.as_slice().split_str(".").map(|i| i.to_owned()).collect();
+        self.current_path = name.as_slice().split_str(".").map(|i| i.to_string()).collect();
 
         let ok = ValueBuilder::recursive_create_tree(self.current_path.as_slice(), self.root, is_array);
         if !ok {
@@ -652,7 +652,7 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
     fn parse_string(&mut self) -> Option<String> {
         if !self.advance_if('"') { return None }
 
-        let mut str = "".to_owned();
+        let mut str = "".to_string();
         loop {
             if self.ch().is_none() { return None }
             match self.ch().unwrap() {
@@ -707,7 +707,7 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
     }
 
     fn read_token(&mut self, f: |char| -> bool) -> String {
-        let mut token = "".to_owned();
+        let mut token = "".to_string();
         loop {
             match self.ch() {
                 Some(ch) => {
@@ -990,7 +990,7 @@ impl serialize::Decoder<Error> for Decoder {
         // XXX: assert!(self.value == NoValue);
         match self.state {
             Tab(ref mut tab) => {
-                match tab.pop(&name.to_owned()) { // XXX: pop_equiv(...) or find_equiv_mut...
+                match tab.pop(&name.to_string()) { // XXX: pop_equiv(...) or find_equiv_mut...
                     None => f(&mut Decoder::new(NoValue)), // XXX: NoValue means "nil" here
                     Some(val) => f(&mut Decoder::new(val))
                 }
