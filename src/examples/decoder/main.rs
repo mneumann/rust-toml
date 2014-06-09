@@ -1,5 +1,5 @@
 extern crate serialize;
-extern crate toml = "github.com/mneumann/rust-toml#toml:0.1";
+extern crate toml = "github.com/mneumann/rust-toml#toml";
 
 use std::os;
 
@@ -7,8 +7,8 @@ use std::os;
 struct Config {
     host: String,
     port: Option<uint>,
-    ids: ~[uint],
-    products: ~[Product]
+    ids: Vec<uint>,
+    products: Vec<Product>
 }
 
 #[deriving(Show,Decodable)]

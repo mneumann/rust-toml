@@ -1,4 +1,4 @@
-extern crate toml = "github.com/mneumann/rust-toml#toml:0.1";
+extern crate toml = "github.com/mneumann/rust-toml#toml";
 
 use std::os;
 
@@ -28,10 +28,10 @@ fn main() {
   };
   println!("{}", value);
 
-  let a = value.lookup_elm(&("a")).and_then(|a| a.get_str());
+  let a = value.lookup_elm(&"a").and_then(|a| a.get_str());
   if a.is_some() { println!("Found a: {}", a) }
 
-  let abc_def_a = value.lookup_elm(&("abc")).and_then(|a| a.lookup_elm(&("def")).and_then(|a| a.lookup_elm(&("a"))));
+  let abc_def_a = value.lookup_elm(&"abc").and_then(|a| a.lookup_elm(&"def").and_then(|a| a.lookup_elm(&"a")));
   if abc_def_a.is_some() { println!("Found abc.def.a: {}", abc_def_a) }
 
   let a = value.lookup("abc.def.a");
