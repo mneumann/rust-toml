@@ -1,4 +1,4 @@
-#![crate_id = "github.com/mneumann/rust-toml#toml:0.1"]
+#![crate_id = "github.com/mneumann/rust-toml#toml"]
 #![desc = "A TOML configuration file parser for Rust"]
 #![license = "MIT"]
 #![crate_type = "lib"]
@@ -17,7 +17,7 @@ extern crate collections;
 use std::char;
 use std::mem;
 
-use collections::hashmap::{HashMap,MoveEntries};
+use std::collections::hashmap::{HashMap,MoveEntries};
 use std::vec::MoveItems;
 
 use std::io::{File,IoError,IoResult,EndOfFile};
@@ -64,7 +64,7 @@ impl fmt::Show for Value {
 
 
 /// Possible errors returned from the parse functions
-#[deriving(Show,Clone,Eq)]
+#[deriving(Show,Clone,PartialEq)]
 pub enum Error {
     /// A parser error occurred during parsing
     ParseError,
@@ -267,13 +267,12 @@ impl<'a> ValueBuilder<'a> {
                     }
                 }
                 else {
-                    //let last_table = &mut ;
-                    match table_array.mut_last().unwrap() {
-                        &Table(_, ref mut hmap) => {
+                    match table_array.mut_last() {
+                        Some(&Table(_, ref mut hmap)) => {
                             return ValueBuilder::recursive_create_tree(path.tail(), hmap, is_array);
                         }
                         _ => {
-                            // TableArray's only contain Table's
+                            // TableArray's only contain Table's and must be non-empty
                             unreachable!();
                         }
                     }
@@ -334,12 +333,12 @@ impl<'a> ValueBuilder<'a> {
                 }
                 Some(&TableArray(ref mut table_array)) => {
                     assert!(table_array.len() > 0);
-                    match table_array.mut_last().unwrap() {
-                        &Table(_, ref mut hmap) => {
+                    match table_array.mut_last() {
+                        Some(&Table(_, ref mut hmap)) => {
                             return ValueBuilder::insert_value(path.tail(), key, hmap, val);
                         }
                         _ => {
-                            // TableArray's only contain Table's
+                            // TableArray's only contain Table's and must be non-empty
                             unreachable!();
                         }
                     }
@@ -623,7 +622,7 @@ impl<'a, BUF: Buffer> Parser<'a, BUF> {
                         }
                         val => {
                             if !arr.is_empty() {
-                                if !have_equiv_types(arr.as_slice().head().unwrap(), &val) {
+                                if !have_equiv_types(arr.get(0), &val) {
                                     debug!("Incompatible element types in array");
                                     return NoValue;
                                 }
