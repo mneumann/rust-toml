@@ -907,12 +907,12 @@ pub fn parse_from_buffer<BUF: Buffer>(rd: &mut BUF) -> Result<Value,Error> {
             Ok(_) => ()
         }
     }
-    return Ok(TableInner(ht));
+    Ok(TableInner(ht))
 }
 
 pub fn parse_from_bytes(bytes: &[u8]) -> Result<Value,Error> {
     let mut rd = BufReader::new(bytes);
-    return parse_from_buffer(&mut rd);
+    parse_from_buffer(&mut rd)
 }
 
 pub fn parse_from_string(string: &str) -> Result<Value,Error> {
