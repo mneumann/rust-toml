@@ -915,6 +915,10 @@ pub fn parse_from_bytes(bytes: &[u8]) -> Result<Value,Error> {
     return parse_from_buffer(&mut rd);
 }
 
+pub fn parse_from_string(string: &str) -> Result<Value,Error> {
+    parse_from_bytes(string.as_bytes())
+}
+
 enum State {
     No,
     Arr(MoveItems<Value>),
