@@ -11,7 +11,7 @@
 /// [1]: https://github.com/mojombo/toml
 
 extern crate serialize;
-#[phase(syntax, link)] extern crate log;
+#[phase(plugin, link)] extern crate log;
 
 use std::char;
 use std::mem;
