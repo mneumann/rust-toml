@@ -1,7 +1,11 @@
-before_install:
-  - yes | sudo add-apt-repository ppa:hansjorg/rust
-  - sudo apt-get update
 install:
-  - sudo apt-get install rust-nightly
+  - curl -O http://static.rust-lang.org/dist/rust-nightly-x86_64-unknown-linux-gnu.tar.gz
+  - tar xfz rust-nightly-x86_64-unknown-linux-gnu.tar.gz
+
 script:
-  - make test
+  - rust-nightly-x86_64-unknown-linux-gnu/bin/rustc --version
+  - RUSTC=rust-nightly-x86_64-unknown-linux-gnu/bin/rustc make test
+
+notifications:
+  email:
+    - michaelneuma@gmail.com
