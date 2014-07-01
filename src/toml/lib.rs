@@ -1,4 +1,4 @@
-#![crate_id = "toml"]
+#![crate_id = "github.com/mneumann/rust-toml#toml:0.1"]
 #![desc = "A TOML configuration file parser for Rust"]
 #![license = "MIT"]
 #![crate_type = "lib"]
