@@ -3,8 +3,11 @@
 [travis-image]: https://travis-ci.org/mneumann/rust-toml.png?branch=master
 [travis-link]: https://travis-ci.org/mneumann/rust-toml
 
+NOTE: This version is no longer maintained in favor of [toml-rs]!
+
 A [TOML][toml-home] configuration file parser for [Rust][rust-home].
 
+[toml-rs]: https://github.com/alexcrichton/toml-rs
 [toml-home]: https://github.com/mojombo/toml
 [rust-home]: http://www.rust-lang.org
 
