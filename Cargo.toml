@@ -1,0 +1,11 @@
+[package]
+
+name = "toml"
+version = "0.1.0"
+authors = ["michaelneuma@gmail.com"]
+
+[[lib]]
+
+name = "toml"
+crate_type = ["dylib", "staticlib"]
+path = "src/toml/lib.rs"
