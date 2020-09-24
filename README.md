@@ -1,9 +1,10 @@
+> :warning: **WARNING: This is no longer maintained nor works with current versions of Rust!
+Please use [toml-rs][toml-rs] instead.**
+
 # rust-toml [![Build Status][travis-image]][travis-link]
 
 [travis-image]: https://travis-ci.org/mneumann/rust-toml.png?branch=master
 [travis-link]: https://travis-ci.org/mneumann/rust-toml
-
-NOTE: This version is no longer maintained in favor of [toml-rs]!
 
 A [TOML][toml-home] configuration file parser for [Rust][rust-home].
 
