@@ -30,7 +30,7 @@ fn format_float(f: f64) -> String {
     let str = str.as_slice();
     let str = str.trim_right_chars('0');
     if str.ends_with(".") {
-      str.to_string().append("0")
+      format!("{}0", str)
     } else {
       str.to_string()
     }
@@ -72,8 +72,7 @@ fn toml_test_runner() {
     println!("{:s}", json.to_pretty_str());
 }
 
-fn independent_test_runner(path: String) {
-  let path = Path::new(path);
+fn independent_test_runner(path: Path) {
   let mut tests: int = 0;
   let mut failed: int = 0;
   let mut passed: int = 0;
@@ -151,7 +150,7 @@ fn independent_test_runner(path: String) {
 fn main() {
     match os::args().len() {
       1 => toml_test_runner(),
-      2 => independent_test_runner(os::args().get(1).clone()),
-      _ => fail!("USAGE: {:s} [path]", os::args().get(0).clone()),
+      2 => independent_test_runner(Path::new(os::args().get(1).clone())),
+      _ => fail!("USAGE: {:s} [path]", os::args().get(0).as_slice()),
     }
 }
